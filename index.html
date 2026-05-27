@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Amino Acid Meal Composer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
@@ -684,7 +684,7 @@
           <div class="profile-field">
             <label>Weight</label>
             <div class="with-unit">
-              <input class="profile-input" type="number" id="pWeight" value="75" min="30" max="300" oninput="onProfileChange()" />
+              <input class="profile-input" type="number" id="pWeight" value="75" min="30" max="300" inputmode="decimal" oninput="onProfileChange()" />
               <div class="unit-toggle">
                 <button class="toggle-btn active" id="btnKg"  onclick="setWeightUnit('kg')">kg</button>
                 <button class="toggle-btn"        id="btnLbs" onclick="setWeightUnit('lbs')">lbs</button>
@@ -700,7 +700,7 @@
           </div>
           <div class="profile-field">
             <label>Meals / day</label>
-            <input class="profile-input" type="number" id="pMeals" value="3" min="1" max="6" oninput="onProfileChange()" />
+            <input class="profile-input" type="number" id="pMeals" value="3" min="1" max="6" inputmode="numeric" oninput="onProfileChange()" />
           </div>
         </div>
         <div class="goal-section">
@@ -721,7 +721,7 @@
         </div>
         <div class="custom-row">
           <label>Custom override:</label>
-          <input class="profile-input" type="number" id="pCustom" placeholder="—" min="30" max="600"
+          <input class="profile-input" type="number" id="pCustom" placeholder="—" min="30" max="600" inputmode="decimal"
                  oninput="onCustomChange()" />
           <span class="custom-unit">g / day</span>
           <span class="custom-active-note hidden" id="customActiveNote">⚡ custom target active</span>
@@ -1403,7 +1403,7 @@ function renderMealItems() {
       <div class="gram-control">
         <button class="gram-btn" onclick="adj(${i},-10)">−</button>
         <input  class="gram-input" type="number" value="${item.grams}" min="1" max="2000"
-                onchange="setG(${i},this.value)" />
+                inputmode="decimal" onchange="setG(${i},this.value)" />
         <span class="gram-label">g</span>
         <button class="gram-btn" onclick="adj(${i},+10)">+</button>
       </div>
