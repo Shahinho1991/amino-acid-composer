@@ -1,0 +1,1838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Amino Acid Meal Composer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #fdf8f3;
+      --surface:   #ffffff;
+      --surface2:  #f5f0ff;
+      --border:    #e8dff7;
+      --green:     #4d9e72;
+      --green-dim: #eaf7f1;
+      --amber:     #d97a58;
+      --amber-dim: #fff3ee;
+      --red:       #c9546f;
+      --red-dim:   #fff0f5;
+      --blue:      #7c6fd8;
+      --blue-dim:  #eeebff;
+      --text:      #2c1e3f;
+      --text2:     #6a5c84;
+      --text3:     #9e90ba;
+      --radius:    16px;
+      --radius-sm: 10px;
+      --shadow:    0 2px 10px rgba(100,60,160,.07);
+      --shadow-md: 0 4px 20px rgba(100,60,160,.10);
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+    /* ── Pride stripe ── */
+    body::before {
+      content: "";
+      display: block;
+      height: 4px;
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: linear-gradient(90deg,
+        #ff6b6b 0%, #ffa94d 16.6%, #ffe066 33.3%,
+        #51cf66 50%, #339af0 66.6%, #cc5de8 83.3%, #f783ac 100%);
+    }
+
+    /* ── Layout ── */
+    .app {
+      display: grid;
+      grid-template-columns: clamp(220px, 26vw, 320px) 1fr;
+      grid-template-rows: auto 1fr;
+      grid-template-areas: "header header" "sidebar main";
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      grid-area: header;
+      padding: 18px 24px;
+      margin-top: 4px; /* clear pride stripe */
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, #fff9f5 0%, #f9f4ff 50%, #f3fbf7 100%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--shadow);
+    }
+    .logo { font-size: 30px; }
+    .header-text h1 { font-size: 17px; font-weight: 700; background: linear-gradient(90deg, var(--green), var(--blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .header-text p  { font-size: 12px; color: var(--text2); margin-top: 2px; }
+    .header-badges { margin-left: auto; display: flex; gap: 8px; }
+    .badge {
+      background: var(--green-dim);
+      color: var(--green);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid color-mix(in srgb, var(--green) 40%, transparent);
+      letter-spacing: .3px;
+    }
+    .badge.blue {
+      background: var(--blue-dim);
+      color: var(--blue);
+      border-color: color-mix(in srgb, var(--blue) 40%, transparent);
+    }
+
+    /* ── Sidebar ── */
+    aside {
+      grid-area: sidebar;
+      border-right: 1px solid var(--border);
+      background: linear-gradient(180deg, #fff 0%, #fdf9ff 100%);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: sticky;
+      top: 4px; /* clear pride stripe */
+      height: calc(100vh - 61px);
+    }
+    .sidebar-top { padding: 14px 14px 10px; border-bottom: 1px solid var(--border); }
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .9px;
+      color: var(--text3);
+      margin-bottom: 10px;
+    }
+    .search-wrap { position: relative; }
+    .search-wrap input {
+      width: 100%;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 12px 8px 32px;
+      outline: none;
+      transition: border-color .15s, box-shadow .15s;
+      box-shadow: inset 0 1px 3px rgba(100,60,160,.05);
+    }
+    .search-wrap input:focus { border-color: var(--green); box-shadow: inset 0 1px 3px rgba(100,60,160,.05), 0 0 0 3px color-mix(in srgb, var(--green) 15%, transparent); }
+    .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 13px; pointer-events: none; }
+    .filters { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+    .filter-btn {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      color: var(--text2);
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all .12s;
+      font-weight: 500;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: var(--green-dim);
+      border-color: var(--green);
+      color: var(--green);
+      font-weight: 600;
+    }
+    .food-list { flex: 1; overflow-y: auto; padding: 6px 8px; }
+    .food-list::-webkit-scrollbar { width: 5px; }
+    .food-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+    .food-item {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: background .12s;
+      user-select: none;
+    }
+    .food-item:hover  { background: var(--surface2); }
+    .food-item.in-meal { background: var(--green-dim); }
+    .food-emoji { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
+    .food-info { flex: 1; min-width: 0; }
+    .food-name { font-size: 12.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .food-meta { font-size: 11px; color: var(--text3); margin-top: 1px; }
+    .food-protein {
+      font-size: 11px; font-weight: 600; color: var(--green);
+      background: var(--green-dim); padding: 2px 7px;
+      border-radius: 20px; flex-shrink: 0;
+    }
+    .food-add-btn {
+      width: 20px; height: 20px;
+      background: none; border: 1.5px solid var(--border);
+      border-radius: 50%; color: var(--text3);
+      font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: all .1s;
+    }
+    .food-item:hover .food-add-btn { border-color: var(--green); color: var(--green); }
+    .food-item.in-meal .food-add-btn { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+    .empty-list { padding: 20px; text-align: center; color: var(--text3); font-size: 12px; }
+
+    /* ── Main ── */
+    main { grid-area: main; padding: 22px 26px; overflow-y: auto; }
+
+    .meal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .meal-header h2 { font-size: 16px; font-weight: 700; color: var(--text); }
+    .btn-ghost {
+      background: none; border: 1.5px solid var(--border);
+      color: var(--text2); font-size: 12px;
+      padding: 5px 12px; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all .12s;
+      font-weight: 500;
+    }
+    .btn-ghost:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+    .meal-items { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+    .meal-item {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      display: flex; align-items: center; gap: 10px;
+      box-shadow: var(--shadow);
+      animation: slideIn .18s ease;
+    }
+    @keyframes slideIn { from { opacity:0; transform:translateY(-5px); } to { opacity:1; transform:translateY(0); } }
+    .meal-item-emoji { font-size: 20px; flex-shrink: 0; }
+    .meal-item-name { flex: 1; font-size: 13px; font-weight: 600; min-width: 0; color: var(--text); }
+    .gram-control { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .gram-btn {
+      width: 26px; height: 26px;
+      background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: 50%; color: var(--text2);
+      font-size: 16px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all .1s;
+    }
+    .gram-btn:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+    .gram-input {
+      width: 55px; background: var(--surface2); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text);
+      font-size: 13px; font-weight: 700; text-align: center;
+      padding: 4px 5px; outline: none;
+    }
+    .gram-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 15%, transparent); }
+    .gram-label { font-size: 11px; color: var(--text3); }
+    .remove-btn {
+      background: none; border: none; color: var(--text3);
+      font-size: 16px; cursor: pointer; padding: 4px;
+      border-radius: 8px; transition: all .1s; line-height: 1; flex-shrink: 0;
+    }
+    .remove-btn:hover { color: var(--red); background: var(--red-dim); }
+
+    .meal-empty {
+      background: var(--surface); border: 2px dashed var(--border);
+      border-radius: var(--radius); padding: 40px 20px;
+      text-align: center; color: var(--text3);
+    }
+    .meal-empty .hint { font-size: 28px; margin-bottom: 8px; }
+    .meal-empty p { font-size: 13px; color: var(--text2); }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 12px; margin-bottom: 18px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+      box-shadow: var(--shadow);
+      transition: box-shadow .15s;
+    }
+    .stat-card:hover { box-shadow: var(--shadow-md); }
+    .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; font-weight: 600; }
+    .stat-value { font-size: 22px; font-weight: 800; }
+    .stat-unit  { font-size: 12px; color: var(--text2); margin-left: 2px; }
+    .stat-card.green { border-color: color-mix(in srgb, var(--green) 40%, transparent); background: var(--green-dim); }
+    .stat-card.green .stat-value { color: var(--green); }
+    .stat-card.amber { border-color: color-mix(in srgb, var(--amber) 40%, transparent); background: var(--amber-dim); }
+    .stat-card.amber .stat-value { color: var(--amber); }
+    .stat-card.red   { border-color: color-mix(in srgb, var(--red) 40%, transparent); background: var(--red-dim); }
+    .stat-card.red   .stat-value { color: var(--red); }
+
+    /* ── Limiting callout ── */
+    .limiting-card {
+      border-radius: var(--radius); padding: 16px 20px;
+      display: flex; align-items: center; gap: 14px; margin-bottom: 20px;
+      border: 1.5px solid color-mix(in srgb, var(--amber) 40%, transparent);
+      background: var(--amber-dim);
+      box-shadow: var(--shadow);
+    }
+    .limiting-card.good { border-color: color-mix(in srgb, var(--green) 40%, transparent); background: var(--green-dim); }
+    .limiting-icon { font-size: 28px; flex-shrink: 0; }
+    .limiting-text h3 { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+    .limiting-text p  { font-size: 12px; color: var(--text2); line-height: 1.55; }
+    .limiting-tag {
+      margin-left: auto; font-weight: 700; font-size: 13px;
+      padding: 6px 14px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+    }
+
+    /* ── Score section ── */
+    .score-section {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 16px; margin-bottom: 20px;
+    }
+    .score-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .score-card h3 { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .6px; }
+    .score-big { font-size: 48px; font-weight: 800; line-height: 1; margin-bottom: 6px; }
+    .score-desc { font-size: 12px; color: var(--text2); line-height: 1.55; }
+    .score-bar-wrap { margin-top: 12px; background: var(--surface2); border-radius: 99px; height: 6px; overflow: hidden; }
+    .score-bar { height: 100%; border-radius: 99px; transition: width .5s ease; }
+
+    /* ── Charts ── */
+    .charts-section { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+    .chart-card {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .chart-card h3 { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 14px; text-transform: uppercase; letter-spacing: .6px; }
+    .chart-wrap { position: relative; height: 270px; }
+
+    /* ── AA Table ── */
+    .aa-table-section {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .aa-table-header {
+      padding: 14px 18px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+      background: linear-gradient(90deg, #fdf8f3 0%, #f8f4ff 100%);
+    }
+    .aa-table-header h3 { font-size: 14px; font-weight: 700; color: var(--text); }
+    .aa-table-header .sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+    .view-toggle {
+      display: flex; gap: 0;
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+    }
+    .view-btn {
+      background: none; border: none; color: var(--text2);
+      font-size: 11px; padding: 6px 12px; cursor: pointer; transition: all .1s;
+      font-weight: 500;
+    }
+    .view-btn.active { background: var(--green); color: #fff; font-weight: 700; }
+    .view-btn:not(:last-child) { border-right: 1.5px solid var(--border); }
+
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .5px; color: var(--text3);
+      padding: 10px 18px; text-align: left;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--surface2) 50%, var(--surface));
+    }
+    th:not(:first-child) { text-align: right; }
+    td { padding: 10px 18px; font-size: 13px; border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent); vertical-align: middle; }
+    td:not(:first-child) { text-align: right; }
+    tr:last-child td { border-bottom: none; }
+    tr.row-limiting td { background: color-mix(in srgb, var(--amber-dim) 90%, transparent); }
+    tr.row-strong td { background: color-mix(in srgb, var(--green-dim) 60%, transparent); }
+
+    .aa-name { font-weight: 600; }
+    .aa-abbr { color: var(--text3); font-size: 11px; margin-left: 5px; }
+    .aa-tag {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      padding: 1px 6px; border-radius: 20px; margin-left: 5px;
+      vertical-align: middle; letter-spacing: .2px;
+    }
+    .tag-mps  { background: var(--amber-dim); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 35%, transparent); }
+    .tag-bcaa { background: var(--blue-dim);  color: var(--blue);  border: 1px solid color-mix(in srgb, var(--blue)  35%, transparent); }
+
+    .progress-wrap { display: flex; align-items: center; justify-content: flex-end; gap: 7px; }
+    .progress-bar-bg { width: 80px; height: 7px; background: var(--surface2); border-radius: 99px; overflow: hidden; flex-shrink: 0; }
+    .progress-bar { height: 100%; border-radius: 99px; transition: width .4s ease; }
+    .progress-pct { font-size: 12px; font-weight: 700; width: 38px; text-align: right; }
+
+    /* ── Pairing tips ── */
+    .tip-section {
+      background: linear-gradient(135deg, #fdf9ff, #f5fbf7);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px; margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .tip-section h3 { font-size: 13px; font-weight: 700; margin-bottom: 13px; color: var(--text); }
+    .tip-list { display: flex; flex-direction: column; gap: 8px; }
+    .tip-item { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--text2); line-height: 1.55; }
+    .tip-item .ti { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .tip-item strong { color: var(--text); }
+
+    /* ── Reference grid ── */
+    .ref-section {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px; margin-bottom: 10px;
+      box-shadow: var(--shadow);
+    }
+    .ref-section h3 { font-size: 11px; font-weight: 700; color: var(--text2); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .5px; }
+    .ref-grid { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; }
+    .ref-item { background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 8px 6px; text-align: center; }
+    .ref-aa  { font-size: 11px; font-weight: 700; color: var(--green); }
+    .ref-val { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+    .footer { font-size: 11px; color: var(--text3); text-align: center; padding: 18px 14px; line-height: 1.8; }
+    .footer a { color: var(--blue); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; color: var(--green); }
+
+    /* ── Profile section ── */
+    .profile-section {
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 20px; overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .profile-bar {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; cursor: pointer; user-select: none;
+      transition: background .12s;
+      background: linear-gradient(90deg, #fff9f5 0%, #f9f4ff 100%);
+    }
+    .profile-bar:hover { background: linear-gradient(90deg, #f5f2ff 0%, #edf7f1 100%); }
+    .pb-icon  { font-size: 16px; flex-shrink: 0; }
+    .pb-title { font-size: 13px; font-weight: 700; flex-shrink: 0; color: var(--text); }
+    .pb-summary { font-size: 12px; color: var(--text2); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .pb-target { font-size: 12px; font-weight: 700; color: var(--green); flex-shrink: 0; }
+    .pb-caret  { font-size: 10px; color: var(--text3); flex-shrink: 0; transition: transform .2s; }
+    .pb-caret.open { transform: rotate(180deg); }
+
+    .profile-body {
+      border-top: 1px solid var(--border);
+      padding: 16px 18px; display: flex; flex-direction: column; gap: 16px;
+      background: color-mix(in srgb, var(--surface2) 30%, var(--surface));
+    }
+    .profile-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; }
+    .profile-field { display: flex; flex-direction: column; gap: 5px; }
+    .profile-field label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .6px; color: var(--text3);
+    }
+    .profile-input {
+      width: 72px; background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); color: var(--text); font-size: 14px;
+      font-weight: 700; text-align: center; padding: 6px 8px; outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .profile-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px color-mix(in srgb, var(--green) 15%, transparent); }
+    .with-unit  { display: flex; gap: 6px; align-items: center; }
+    .unit-toggle, .gender-toggle {
+      display: flex; border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden;
+    }
+    .toggle-btn {
+      background: none; border: none; color: var(--text2);
+      font-size: 12px; font-weight: 600; padding: 6px 11px;
+      cursor: pointer; transition: all .1s;
+    }
+    .toggle-btn.active { background: var(--green); color: #fff; }
+    .toggle-btn:not(:last-child) { border-right: 1.5px solid var(--border); }
+
+    .goal-section { display: flex; flex-direction: column; gap: 10px; }
+    .goal-section > label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .6px; color: var(--text3);
+    }
+    /* ── Goal slider ── */
+    .goal-range {
+      -webkit-appearance: none; appearance: none;
+      width: 100%; height: 6px; border-radius: 99px;
+      outline: none; cursor: pointer;
+      /* background updated by JS */
+    }
+    .goal-range::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #fff; border: 3px solid var(--green);
+      box-shadow: 0 2px 8px rgba(77,158,114,.3);
+      cursor: pointer; transition: box-shadow .15s, transform .12s;
+    }
+    .goal-range::-webkit-slider-thumb:hover { box-shadow: 0 3px 14px rgba(77,158,114,.45); transform: scale(1.12); }
+    .goal-range::-moz-range-thumb {
+      width: 24px; height: 24px; border-radius: 50%;
+      background: #fff; border: 3px solid var(--green);
+      box-shadow: 0 2px 8px rgba(77,158,114,.3); cursor: pointer;
+    }
+    .goal-tick-labels { display: flex; justify-content: space-between; margin-top: 2px; }
+    .goal-tick-labels span {
+      font-size: 10px; font-weight: 600; color: var(--text3);
+      width: 20%; text-align: center; transition: color .15s;
+    }
+    .goal-tick-labels span.gtl-active { color: var(--green); font-weight: 700; }
+    .goal-display {
+      background: var(--green-dim);
+      border: 1.5px solid color-mix(in srgb, var(--green) 30%, transparent);
+      border-radius: var(--radius-sm); padding: 12px 14px;
+      transition: background .2s;
+    }
+    .goal-display-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
+    .goal-display-name   { font-size: 17px; font-weight: 800; color: var(--green); }
+    .goal-display-factor { font-size: 12px; font-weight: 700; color: var(--text2); }
+    .goal-display-desc   { font-size: 12px; color: var(--text2); line-height: 1.6; }
+
+    .custom-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      padding: 10px 13px; background: var(--surface);
+      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    }
+    .custom-row label { font-size: 12px; color: var(--text2); white-space: nowrap; }
+    .custom-row .profile-input { width: 72px; }
+    .custom-unit { font-size: 12px; color: var(--text2); }
+    .custom-note { font-size: 11px; color: var(--text3); }
+    .custom-active-note { font-size: 11px; color: var(--amber); font-weight: 700; }
+    .btn-ghost-sm {
+      background: none; border: 1.5px solid var(--border); color: var(--text2);
+      font-size: 11px; padding: 3px 10px; border-radius: var(--radius-sm);
+      cursor: pointer; transition: all .1s;
+    }
+    .btn-ghost-sm:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+
+    /* Stat card sub-elements */
+    .stat-sub  { font-size: 11px; color: var(--text2); margin-top: 3px; }
+    .stat-pct  { font-size: 12px; font-weight: 600; margin-left: 5px; }
+    .target-hint { font-weight: 400; color: var(--text3); font-size: 10px; text-transform: none; letter-spacing: 0; }
+
+    .hidden { display: none !important; }
+
+    /* ── Suggest-next panel ── */
+    .suggest-section {
+      background: linear-gradient(135deg, #f7f4ff 0%, #f3fbf7 100%);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius); padding: 16px 18px; margin-bottom: 20px;
+      box-shadow: var(--shadow);
+    }
+    .suggest-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .suggest-title  { font-size: 14px; font-weight: 700; color: var(--text); }
+    .suggest-sub    { font-size: 12px; color: var(--text2); }
+    .suggest-list   { display: flex; flex-direction: column; gap: 8px; }
+    .suggest-item {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm); padding: 10px 12px;
+      transition: box-shadow .15s;
+    }
+    .suggest-item:hover { box-shadow: var(--shadow-md); }
+    .suggest-rank  { font-size: 11px; font-weight: 700; color: var(--text3); width: 16px; flex-shrink: 0; text-align: center; }
+    .suggest-emoji { font-size: 20px; flex-shrink: 0; }
+    .suggest-info  { flex: 1; min-width: 0; }
+    .suggest-name  { font-size: 13px; font-weight: 600; color: var(--text); }
+    .suggest-detail { font-size: 11px; color: var(--text2); margin-top: 2px; line-height: 1.4; }
+    .suggest-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px;
+      border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+    }
+    .suggest-add-btn {
+      background: var(--green-dim);
+      border: 1.5px solid color-mix(in srgb, var(--green) 40%, transparent);
+      color: var(--green); font-size: 12px; font-weight: 700;
+      padding: 7px 13px; border-radius: var(--radius-sm);
+      cursor: pointer; flex-shrink: 0; transition: all .12s; white-space: nowrap;
+    }
+    .suggest-add-btn:hover { background: var(--green); color: #fff; }
+    .suggest-add-btn:disabled { opacity: .55; cursor: default; background: var(--surface2); color: var(--text3); border-color: var(--border); }
+
+    /* ── Mobile overlay & FAB ── */
+    .mobile-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(44,30,63,.35);
+      backdrop-filter: blur(2px);
+      z-index: 190;
+    }
+    .mobile-overlay.visible { display: block; }
+
+    .mobile-fab {
+      display: none;
+      position: fixed; bottom: 22px; right: 20px;
+      width: 54px; height: 54px;
+      background: var(--green); color: #fff;
+      border: none; border-radius: 50%; font-size: 26px;
+      box-shadow: 0 4px 18px rgba(77,158,114,.45);
+      cursor: pointer; align-items: center; justify-content: center;
+      z-index: 300; transition: transform .12s, background .12s;
+    }
+    .mobile-fab:active { transform: scale(.92); }
+    .mobile-fab.is-open { background: var(--red); font-size: 20px; }
+
+    .sidebar-drag { display: none; width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 10px auto 4px; flex-shrink: 0; }
+
+    /* ── Narrow desktop / large tablet (sidebar shrinks, cards reflow) ── */
+    @media (max-width: 950px) {
+      /* Two-column layout is KEPT — sidebar just gets narrower via clamp() */
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .score-section, .charts-section { grid-template-columns: 1fr; }
+      .ref-grid { grid-template-columns: repeat(3, 1fr); }
+      .chart-wrap { height: 220px; }
+    }
+
+    /* ── Phone: sidebar becomes a bottom sheet ── */
+    @media (max-width: 680px) {
+      body::before { height: 3px; }
+
+      /* Remove sidebar from the grid entirely — it lives as a fixed bottom sheet */
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-areas: "header" "main";
+      }
+
+      header { padding: 12px 14px; margin-top: 3px; }
+      .header-badges { display: none; }
+      .header-text h1 { font-size: 15px; }
+      .header-text p  { font-size: 11px; }
+      .logo { font-size: 24px; }
+
+      aside {
+        position: fixed;
+        bottom: 0; left: 0; right: 0; top: auto;
+        height: 75vh;
+        border-radius: 20px 20px 0 0;
+        border-right: none;
+        border-top: 1.5px solid var(--border);
+        z-index: 200;
+        transform: translateY(110%);
+        transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 -8px 40px rgba(100, 60, 160, .15);
+      }
+      aside.mobile-open { transform: translateY(0); }
+
+      .sidebar-drag { display: block; }
+      .mobile-fab   { display: flex; }
+
+      main { padding: 12px 12px 88px; }
+
+      .stats-row { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .stat-card  { padding: 10px 12px; }
+      .stat-value { font-size: 18px; }
+
+      .limiting-card { flex-wrap: wrap; gap: 10px; }
+      .limiting-tag  { margin-left: 0; }
+
+      .score-section, .charts-section { grid-template-columns: 1fr; gap: 10px; }
+      .chart-wrap  { height: 200px; }
+      .score-big   { font-size: 38px; }
+
+      .ref-grid { grid-template-columns: repeat(3, 1fr); }
+      .aa-table-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .aa-table-section { overflow-x: auto; }
+
+      .suggest-item { flex-wrap: wrap; gap: 6px; }
+      .suggest-badge    { order: 3; }
+      .suggest-add-btn  { order: 4; padding: 6px 10px; }
+
+      .profile-row { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── HEADER ── -->
+  <header>
+    <div class="logo">🌿</div>
+    <div class="header-text">
+      <h1>Amino Acid Meal Composer</h1>
+      <p>Build plant-based meals · explore your EAA profile · find your limiting link</p>
+    </div>
+    <div class="header-badges">
+      <span class="badge">🌱 Plant Power</span>
+      <span class="badge blue">✨ WHO 2007 Reference</span>
+    </div>
+  </header>
+
+  <!-- Mobile backdrop -->
+  <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileSidebar()"></div>
+
+  <!-- Mobile FAB -->
+  <button class="mobile-fab" id="mobileFab" onclick="toggleMobileSidebar()" aria-label="Browse ingredients">＋</button>
+
+  <!-- ── SIDEBAR ── -->
+  <aside id="sidebar">
+    <div class="sidebar-drag" id="sidebarDrag"></div>
+    <div class="sidebar-top">
+      <div class="section-label">Add Ingredients</div>
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search foods…" autocomplete="off" />
+      </div>
+      <div class="filters" id="categoryFilters"></div>
+    </div>
+    <div class="food-list" id="foodList"></div>
+  </aside>
+
+  <!-- ── MAIN ── -->
+  <main>
+
+    <!-- ── PROFILE SECTION ── -->
+    <div class="profile-section" id="profileSection">
+      <div class="profile-bar" onclick="toggleProfileExpand()">
+        <span class="pb-icon">👤</span>
+        <span class="pb-title">Your Profile</span>
+        <span class="pb-summary" id="pbSummary">75 kg · Muscle building</span>
+        <span class="pb-target" id="pbTarget">135 g/day · 45 g/meal</span>
+        <span class="pb-caret" id="pbCaret">▼</span>
+      </div>
+      <div class="profile-body hidden" id="profileBody">
+        <div class="profile-row">
+          <div class="profile-field">
+            <label>Weight</label>
+            <div class="with-unit">
+              <input class="profile-input" type="number" id="pWeight" value="75" min="30" max="300" oninput="onProfileChange()" />
+              <div class="unit-toggle">
+                <button class="toggle-btn active" id="btnKg"  onclick="setWeightUnit('kg')">kg</button>
+                <button class="toggle-btn"        id="btnLbs" onclick="setWeightUnit('lbs')">lbs</button>
+              </div>
+            </div>
+          </div>
+          <div class="profile-field">
+            <label>Age</label>
+            <div class="unit-toggle">
+              <button class="toggle-btn active" id="btn65no"  onclick="setAge65plus(false)">Under 65</button>
+              <button class="toggle-btn"        id="btn65yes" onclick="setAge65plus(true)">65 +</button>
+            </div>
+          </div>
+          <div class="profile-field">
+            <label>Meals / day</label>
+            <input class="profile-input" type="number" id="pMeals" value="3" min="1" max="6" oninput="onProfileChange()" />
+          </div>
+        </div>
+        <div class="goal-section">
+          <label>Goal — daily protein target</label>
+          <input type="range" class="goal-range" id="goalRange"
+                 min="0" max="4" step="1" value="3"
+                 oninput="onGoalSlider(this.value)" />
+          <div class="goal-tick-labels">
+            <span>WHO</span><span>Light</span><span>Active</span><span>Muscle</span><span>Elite</span>
+          </div>
+          <div class="goal-display">
+            <div class="goal-display-top">
+              <span class="goal-display-name"  id="goalDisplayName">Muscle</span>
+              <span class="goal-display-factor" id="goalDisplayFactor">1.8 g/kg/day</span>
+            </div>
+            <div class="goal-display-desc" id="goalDisplayDesc">Optimal for building muscle with consistent resistance training. Maximises muscle protein synthesis throughout the day.</div>
+          </div>
+        </div>
+        <div class="custom-row">
+          <label>Custom override:</label>
+          <input class="profile-input" type="number" id="pCustom" placeholder="—" min="30" max="600"
+                 oninput="onCustomChange()" />
+          <span class="custom-unit">g / day</span>
+          <span class="custom-active-note hidden" id="customActiveNote">⚡ custom target active</span>
+          <span class="custom-note" id="customCalcNote"></span>
+          <button class="btn-ghost-sm hidden" id="btnClearCustom" onclick="clearCustomTarget()">✕ Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="meal-header">
+      <h2>🍽 My Meal</h2>
+      <button class="btn-ghost" id="clearMealBtn">✕ Clear all</button>
+    </div>
+    <div class="meal-items" id="mealItems">
+      <div class="meal-empty">
+        <div class="hint">🌿</div>
+        <p>Pick ingredients from the left to build your meal ✨</p>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row hidden" id="statsRow">
+      <div class="stat-card" id="scProtein">
+        <div class="stat-label">Protein <span class="target-hint" id="hintProtein"></span></div>
+        <div>
+          <span class="stat-value" id="statProtein">—</span><span class="stat-unit">g</span>
+          <span class="stat-pct" id="statProteinPct"></span>
+        </div>
+        <div class="stat-sub" id="subProtein"></div>
+      </div>
+      <div class="stat-card" id="scLeucine">
+        <div class="stat-label">Leucine <span class="target-hint" id="hintLeucine"></span></div>
+        <div>
+          <span class="stat-value" id="statLeucine">—</span><span class="stat-unit">g</span>
+          <span class="stat-pct" id="statLeucinePct"></span>
+        </div>
+        <div class="stat-sub" id="subLeucine"></div>
+      </div>
+      <div class="stat-card" id="scScore">
+        <div class="stat-label">Quality Score</div>
+        <div><span class="stat-value" id="statScore">—</span><span class="stat-unit">%</span></div>
+        <div class="stat-sub" id="subScore"></div>
+      </div>
+      <div class="stat-card" id="scLimiting">
+        <div class="stat-label">Limiting AA</div>
+        <div class="stat-value" id="statLimiting">—</div>
+        <div class="stat-sub" id="subLimiting"></div>
+      </div>
+    </div>
+
+    <!-- Weakest link callout -->
+    <div class="limiting-card hidden" id="limitingCard">
+      <div class="limiting-icon" id="limitingIcon">⚠️</div>
+      <div class="limiting-text">
+        <h3 id="limitingTitle">—</h3>
+        <p id="limitingDesc">—</p>
+      </div>
+      <div class="limiting-tag" id="limitingTag">—</div>
+    </div>
+
+    <!-- Suggest next ingredient -->
+    <div class="suggest-section hidden" id="suggestSection">
+      <div class="suggest-header">
+        <span class="suggest-title">✨ Best to add next</span>
+        <span class="suggest-sub" id="suggestSub">to balance your profile</span>
+      </div>
+      <div class="suggest-list" id="suggestList"></div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-section hidden" id="chartsSection">
+      <div class="chart-card">
+        <h3>🕸 EAA Radar vs. WHO Reference</h3>
+        <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3>📊 Score per EAA Group</h3>
+        <div class="chart-wrap"><canvas id="barChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Scores -->
+    <div class="score-section hidden" id="scoreSection">
+      <div class="score-card">
+        <h3>🌿 Protein Quality (PDCAAS-style)</h3>
+        <div class="score-big" id="pdcaasScore">—</div>
+        <div class="score-desc" id="pdcaasDesc">—</div>
+        <div class="score-bar-wrap"><div class="score-bar" id="pdcaasBar"></div></div>
+      </div>
+      <div class="score-card">
+        <h3>🎯 Leucine Threshold for MPS</h3>
+        <div class="score-big" id="leucineScore">—</div>
+        <div class="score-desc" id="leucineDesc">Target: ≥ 2.5 g leucine per meal to trigger MPS</div>
+        <div class="score-bar-wrap"><div class="score-bar" id="leucineBar"></div></div>
+      </div>
+    </div>
+
+    <!-- AA Table -->
+    <div class="aa-table-section hidden" id="aaTableSection">
+      <div class="aa-table-header">
+        <div>
+          <h3>Essential Amino Acid Breakdown</h3>
+          <div class="sub">Compared to WHO/FAO 2007 adult scoring pattern · bar = % of reference met</div>
+        </div>
+        <div class="view-toggle">
+          <button class="view-btn active" id="viewPerGram" onclick="setView('perGram')">Quality (mg/g)</button>
+          <button class="view-btn"        id="viewNeeds"   onclick="setView('needs')">Meal needs</button>
+          <button class="view-btn"        id="viewTotal"   onclick="setView('total')">Total mg</button>
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Amino Acid Group</th>
+            <th>Your Meal</th>
+            <th>WHO Target</th>
+            <th>% of Target</th>
+          </tr>
+        </thead>
+        <tbody id="aaTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Tips -->
+    <div class="tip-section hidden" id="tipSection">
+      <h3>💡 Pairing Tips to Boost Your Weakest Link</h3>
+      <div class="tip-list" id="tipList"></div>
+    </div>
+
+    <!-- Reference key -->
+    <div class="ref-section">
+      <h3>WHO/FAO/UNU 2007 Reference Pattern — mg per g protein</h3>
+      <div class="ref-grid" id="refGrid"></div>
+    </div>
+
+    <div class="footer">
+      Amino acid data: <a href="https://fdc.nal.usda.gov/" target="_blank">USDA FoodData Central SR-Legacy</a> ·
+      Reference: <a href="https://www.who.int/publications/i/item/protein-and-amino-acid-requirements-in-human-nutrition" target="_blank">WHO/FAO/UNU Technical Report 935, 2007</a> ·
+      MPS leucine threshold: <a href="https://pubmed.ncbi.nlm.nih.gov/22935440/" target="_blank">Norton &amp; Layman 2012</a> ·
+      Values are approximate. Digestibility (DIAAS) varies by food preparation. Consult a registered dietitian for personalised advice.
+    </div>
+  </main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  REFERENCE DATA
+// ═══════════════════════════════════════════════════════════════════════
+
+// WHO/FAO/UNU 2007 Adult Scoring Pattern (mg per gram protein)
+// Met+Cys and Phe+Tyr are tracked as combined groups (the WHO standard)
+const WHO_REF = {
+  histidine:     18,
+  isoleucine:    31,
+  leucine:       63,
+  lysine:        52,
+  metcys:        26,   // Methionine + Cystine
+  phetyr:        46,   // Phenylalanine + Tyrosine
+  threonine:     27,
+  tryptophan:     7.4,
+  valine:        42,
+};
+
+// Display info for each of the 9 EAA groups
+const AA_GROUPS = [
+  { key: "histidine",  abbr: "His",     label: "Histidine",             note: "immune function, haemoglobin" },
+  { key: "isoleucine", abbr: "Ile",     label: "Isoleucine",            note: "BCAA — energy, muscle repair",    tag: "bcaa" },
+  { key: "leucine",    abbr: "Leu",     label: "Leucine",               note: "BCAA — key MPS trigger (mTOR)",   tag: "mps" },
+  { key: "lysine",     abbr: "Lys",     label: "Lysine",                note: "collagen, carnitine, immunity" },
+  { key: "metcys",     abbr: "Met+Cys", label: "Methionine + Cystine",  note: "sulfur AAs — antioxidants, methylation" },
+  { key: "phetyr",     abbr: "Phe+Tyr", label: "Phenylalanine + Tyr",  note: "aromatic AAs — neurotransmitters" },
+  { key: "threonine",  abbr: "Thr",     label: "Threonine",             note: "collagen, gut lining, immune" },
+  { key: "tryptophan", abbr: "Trp",     label: "Tryptophan",            note: "serotonin, melatonin, niacin" },
+  { key: "valine",     abbr: "Val",     label: "Valine",                note: "BCAA — muscle metabolism, energy",  tag: "bcaa" },
+];
+
+const PAIRING_TIPS = {
+  lysine:    [
+    "🫘 <strong>Legumes are king for lysine</strong> — lentils, chickpeas, black beans, soybeans",
+    "🧆 Tofu or tempeh add lysine-rich complete soy protein",
+    "🌿 Hemp seeds have a notably better lysine ratio than most seeds/nuts",
+  ],
+  metcys:    [
+    "🌾 <strong>Grains are highest in methionine</strong> — rice, oats, whole wheat, quinoa",
+    "🌻 Sunflower seeds are exceptionally high in Met+Cys for a plant food (~5.8 mg/g protein)",
+    "🥜 Brazil nuts (not listed) contain ~20 mg Met/g — the single highest plant source",
+  ],
+  tryptophan:[
+    "🎃 <strong>Pumpkin seeds</strong> are the richest plant source of tryptophan (~4.2 mg/g protein)",
+    "🌰 Cashews and almonds provide solid tryptophan per gram of protein",
+    "🫘 Soybeans and tofu are good sources relative to other legumes",
+  ],
+  threonine: [
+    "🌿 <strong>Hemp seeds</strong> are high in threonine (~3.5 mg/g protein)",
+    "🫘 Lentils and most legumes provide good threonine",
+    "🥛 Dairy (Greek yogurt, cottage cheese) gives a big threonine boost for vegetarians",
+  ],
+  isoleucine:[
+    "🌿 <strong>Hemp seeds</strong> — excellent balance of all three BCAAs",
+    "🫘 Soy proteins (edamame, tofu, tempeh) for well-rounded BCAAs",
+    "🥜 Peanuts and almonds contribute solid isoleucine",
+  ],
+  leucine:   [
+    "🫘 <strong>Soy is the best plant leucine source</strong> — tempeh (8%/protein), edamame, tofu",
+    "🌿 Hemp seeds: ~2.1 g leucine per 100 g — top-tier for a seed",
+    "🥜 Peanuts and pumpkin seeds provide meaningful leucine top-ups",
+  ],
+  valine:    [
+    "🌿 <strong>Hemp seeds</strong> for balanced BCAA coverage including valine",
+    "🫘 Soybeans — highest plant valine per gram of protein",
+    "🌾 Quinoa and oats supplement valine when combined with legumes",
+  ],
+  histidine: [
+    "🫘 <strong>Legumes</strong> — lentils, chickpeas, soybeans all cover histidine well",
+    "🌾 Quinoa and whole grains add meaningful histidine",
+    "🥚 Eggs have a very high histidine score (well above WHO reference)",
+  ],
+  phetyr:    [
+    "🫘 <strong>Most legumes and soy</strong> cover Phe+Tyr very comfortably",
+    "🥜 Nuts (peanuts, almonds) and seeds are rich in phenylalanine",
+    "🌾 Grains contribute phenylalanine effectively",
+  ],
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  FOOD DATABASE  (source: USDA FoodData Central SR-Legacy, g/100g food)
+//  All amino acids in mg per 100g; protein in g per 100g.
+//  Cys  = Cystine,  Tyr = Tyrosine (combined at runtime into metcys/phetyr)
+// ═══════════════════════════════════════════════════════════════════════
+const FOOD_DB = [
+  // ── SOY ──
+  { name:"Firm Tofu",           category:"soy",        emoji:"🫘", serving_hint:"100g block",
+    per100g:{ protein:8.08,  his:189, ile:398, leu:621,  lys:521,  met:95,  cys:48,  phe:415, tyr:299, thr:325, trp:109, val:395 }},
+  { name:"Tempeh",              category:"soy",        emoji:"🫘", serving_hint:"100g",
+    per100g:{ protein:18.54, his:443, ile:953, leu:1484, lys:1210, met:225, cys:109, phe:991, tyr:739, thr:777, trp:261, val:943 }},
+  { name:"Edamame (cooked)",    category:"soy",        emoji:"🫛", serving_hint:"100g shelled",
+    per100g:{ protein:10.25, his:266, ile:572, leu:892,  lys:727,  met:136, cys:70,  phe:594, tyr:442, thr:491, trp:157, val:567 }},
+  { name:"Soybeans (cooked)",   category:"soy",        emoji:"🫘", serving_hint:"100g",
+    per100g:{ protein:16.64, his:428, ile:909, leu:1369, lys:1037, met:262, cys:177, phe:863, tyr:521, thr:670, trp:236, val:828 }},
+
+  // ── LEGUMES ──
+  { name:"Red Lentils (cooked)",  category:"legume", emoji:"🟠", serving_hint:"100g cooked",
+    per100g:{ protein:9.02,  his:260, ile:384, leu:654,  lys:622,  met:77,  cys:62,  phe:452, tyr:260, thr:333, trp:85,  val:432 }},
+  { name:"Chickpeas (cooked)",    category:"legume", emoji:"🟡", serving_hint:"100g cooked",
+    per100g:{ protein:8.86,  his:245, ile:398, leu:688,  lys:598,  met:90,  cys:95,  phe:508, tyr:267, thr:346, trp:89,  val:462 }},
+  { name:"Black Beans (cooked)",  category:"legume", emoji:"🖤", serving_hint:"100g cooked",
+    per100g:{ protein:8.86,  his:253, ile:402, leu:694,  lys:541,  met:111, cys:76,  phe:443, tyr:285, thr:339, trp:87,  val:473 }},
+  { name:"Kidney Beans (cooked)", category:"legume", emoji:"🔴", serving_hint:"100g cooked",
+    per100g:{ protein:8.67,  his:240, ile:393, leu:683,  lys:545,  met:119, cys:75,  phe:446, tyr:283, thr:335, trp:87,  val:458 }},
+  { name:"Green Peas (cooked)",   category:"legume", emoji:"💚", serving_hint:"100g cooked",
+    per100g:{ protein:5.36,  his:109, ile:221, leu:357,  lys:328,  met:62,  cys:40,  phe:229, tyr:144, thr:211, trp:37,  val:265 }},
+
+  // ── GRAINS ──
+  { name:"Quinoa (cooked)",      category:"grain",  emoji:"🌾", serving_hint:"100g cooked",
+    per100g:{ protein:4.40,  his:139, ile:165, leu:292,  lys:239,  met:85,  cys:82,  phe:203, tyr:157, thr:148, trp:52,  val:202 }},
+  { name:"Oats (cooked)",        category:"grain",  emoji:"🥣", serving_hint:"100g cooked porridge",
+    per100g:{ protein:2.40,  his:44,  ile:88,  leu:148,  lys:88,   met:40,  cys:31,  phe:112, tyr:74,  thr:80,  trp:26,  val:114 }},
+  { name:"Brown Rice (cooked)",  category:"grain",  emoji:"🍚", serving_hint:"100g cooked",
+    per100g:{ protein:2.74,  his:58,  ile:94,  leu:195,  lys:91,   met:55,  cys:27,  phe:118, tyr:73,  thr:89,  trp:29,  val:138 }},
+  { name:"Whole Wheat Bread",    category:"grain",  emoji:"🍞", serving_hint:"per slice ~30g",
+    per100g:{ protein:9.44,  his:183, ile:335, leu:616,  lys:247,  met:143, cys:185, phe:429, tyr:278, thr:280, trp:102, val:415 }},
+  { name:"White Rice (cooked)",  category:"grain",  emoji:"🍚", serving_hint:"100g cooked",
+    per100g:{ protein:2.69,  his:57,  ile:91,  leu:192,  lys:83,   met:52,  cys:25,  phe:120, tyr:71,  thr:87,  trp:27,  val:135 }},
+  { name:"Bulgur (cooked)",      category:"grain",  emoji:"🌾", serving_hint:"100g cooked",
+    per100g:{ protein:3.08,  his:71,  ile:117, leu:225,  lys:86,   met:59,  cys:55,  phe:163, tyr:83,  thr:95,  trp:37,  val:145 }},
+
+  // ── SEEDS ──
+  { name:"Hemp Seeds (hulled)",  category:"seed",  emoji:"🌿", serving_hint:"30g (3 tbsp)",
+    per100g:{ protein:31.56, his:782, ile:1254,leu:2088, lys:1276, met:832, cys:473, phe:1362,tyr:897, thr:1091,trp:364, val:1528 }},
+  { name:"Chia Seeds",           category:"seed",  emoji:"⚫", serving_hint:"28g (2 tbsp)",
+    per100g:{ protein:16.54, his:519, ile:777, leu:1305, lys:975,  met:573, cys:407, phe:1016,tyr:563, thr:748, trp:436, val:978 }},
+  { name:"Pumpkin Seeds",        category:"seed",  emoji:"🎃", serving_hint:"28g handful",
+    per100g:{ protein:18.55, his:561, ile:921, leu:1690, lys:936,  met:454, cys:294, phe:1133,tyr:616, thr:671, trp:576, val:1090 }},
+  { name:"Sunflower Seeds",      category:"seed",  emoji:"🌻", serving_hint:"28g handful",
+    per100g:{ protein:20.78, his:487, ile:937, leu:1657, lys:793,  met:492, cys:377, phe:1154,tyr:714, thr:849, trp:296, val:1161 }},
+  { name:"Flaxseeds (ground)",   category:"seed",  emoji:"🟤", serving_hint:"15g (1 tbsp)",
+    per100g:{ protein:18.29, his:484, ile:857, leu:1359, lys:862,  met:370, cys:401, phe:959, tyr:582, thr:747, trp:297, val:989 }},
+  { name:"Sesame Seeds",         category:"seed",  emoji:"🌾", serving_hint:"15g (1 tbsp)",
+    per100g:{ protein:17.73, his:531, ile:740, leu:1336, lys:476,  met:586, cys:452, phe:938, tyr:742, thr:767, trp:388, val:1001 }},
+
+  // ── NUTS ──
+  { name:"Almonds",              category:"nut",   emoji:"🥜", serving_hint:"28g (~23 almonds)",
+    per100g:{ protein:21.15, his:544, ile:734, leu:1489, lys:562,  met:197, cys:206, phe:1070,tyr:470, thr:606, trp:214, val:863 }},
+  { name:"Peanuts",              category:"nut",   emoji:"🥜", serving_hint:"28g handful",
+    per100g:{ protein:25.80, his:651, ile:894, leu:1672, lys:926,  met:305, cys:330, phe:1337,tyr:1083,thr:723, trp:250, val:1082 }},
+  { name:"Cashews",              category:"nut",   emoji:"🥜", serving_hint:"28g (~18 cashews)",
+    per100g:{ protein:18.22, his:392, ile:784, leu:1338, lys:913,  met:357, cys:339, phe:879, tyr:512, thr:648, trp:287, val:1094 }},
+  { name:"Walnuts",              category:"nut",   emoji:"🥜", serving_hint:"28g (~14 halves)",
+    per100g:{ protein:15.23, his:391, ile:625, leu:1170, lys:424,  met:236, cys:208, phe:711, tyr:406, thr:596, trp:170, val:753 }},
+  { name:"Peanut Butter",        category:"nut",   emoji:"🥜", serving_hint:"32g (2 tbsp)",
+    per100g:{ protein:25.09, his:573, ile:837, leu:1559, lys:801,  met:284, cys:298, phe:1234,tyr:1021,thr:668, trp:235, val:1009 }},
+
+  // ── ALGAE / OTHER ──
+  { name:"Spirulina (dried)",    category:"algae", emoji:"💚", serving_hint:"10g (1 tbsp powder)",
+    per100g:{ protein:57.47, his:1085,ile:3209,leu:4947, lys:3025, met:1149,cys:662, phe:2777,tyr:2584,thr:2584,trp:929, val:3512 }},
+  { name:"Nutritional Yeast",    category:"other", emoji:"🟡", serving_hint:"15g (2 tbsp flakes)",
+    per100g:{ protein:50.00, his:1055,ile:2263,leu:3434, lys:3330, met:719, cys:482, phe:2088,tyr:1802,thr:2467,trp:601, val:2726 }},
+
+  // ── VEGETABLES ──
+  { name:"Broccoli (cooked)",    category:"veggie", emoji:"🥦", serving_hint:"100g",
+    per100g:{ protein:2.38,  his:37,  ile:82,  leu:119,  lys:127,  met:28,  cys:20,  phe:83,  tyr:68,  thr:76,  trp:28,  val:107 }},
+  { name:"Spinach (cooked)",     category:"veggie", emoji:"🥬", serving_hint:"100g",
+    per100g:{ protein:2.97,  his:48,  ile:119, leu:184,  lys:170,  met:41,  cys:16,  phe:107, tyr:84,  thr:109, trp:49,  val:136 }},
+  { name:"Kale (cooked)",        category:"veggie", emoji:"🥬", serving_hint:"100g",
+    per100g:{ protein:2.21,  his:36,  ile:79,  leu:112,  lys:132,  met:26,  cys:22,  phe:80,  tyr:53,  thr:82,  trp:27,  val:101 }},
+
+  // ── VEGETARIAN (not vegan) ──
+  // Eggs
+  { name:"Eggs (whole)",          category:"vegetarian", emoji:"🥚", serving_hint:"50g (1 large egg)",
+    per100g:{ protein:12.56, his:298, ile:671, leu:1085, lys:912,  met:392, cys:272, phe:668, tyr:499, thr:553, trp:167, val:767 }},
+  { name:"Egg Whites",            category:"vegetarian", emoji:"🥚", serving_hint:"33g (1 large white)",
+    per100g:{ protein:10.90, his:228, ile:563, leu:903,  lys:709,  met:382, cys:263, phe:609, tyr:420, thr:442, trp:152, val:665 }},
+
+  // Yogurts
+  { name:"Greek Yogurt (plain)",  category:"vegetarian", emoji:"🫙", serving_hint:"170g (¾ cup)",
+    per100g:{ protein:10.19, his:267, ile:559, leu:985,  lys:1018, met:260, cys:95,  phe:475, tyr:435, thr:491, trp:125, val:640 }},
+  { name:"Low-fat Yogurt (plain)",category:"vegetarian", emoji:"🫙", serving_hint:"245g (1 cup)",
+    per100g:{ protein:5.25,  his:139, ile:286, leu:506,  lys:519,  met:133, cys:43,  phe:244, tyr:222, thr:254, trp:63,  val:328 }},
+
+  // Fresh & soft cheeses
+  { name:"Cottage Cheese",        category:"vegetarian", emoji:"🧀", serving_hint:"113g (½ cup)",
+    per100g:{ protein:11.12, his:309, ile:551, leu:1066, lys:976,  met:266, cys:72,  phe:521, tyr:493, thr:452, trp:145, val:691 }},
+  { name:"Ricotta (whole milk)",  category:"vegetarian", emoji:"🧀", serving_hint:"123g (½ cup)",
+    per100g:{ protein:11.39, his:283, ile:573, leu:982,  lys:904,  met:267, cys:70,  phe:523, tyr:490, thr:459, trp:143, val:669 }},
+  { name:"Paneer",                category:"vegetarian", emoji:"🧀", serving_hint:"100g",
+    per100g:{ protein:18.30, his:472, ile:904, leu:1634, lys:1469, met:441, cys:116, phe:836, tyr:783, thr:704, trp:231, val:1069 }},
+
+  // Aged cheeses
+  { name:"Mozzarella (part-skim)",category:"vegetarian", emoji:"🧀", serving_hint:"85g (3 oz)",
+    per100g:{ protein:21.60, his:514, ile:1014,leu:1841, lys:1657, met:514, cys:102, phe:893, tyr:829, thr:765, trp:259, val:1102 }},
+  { name:"Cheddar Cheese",        category:"vegetarian", emoji:"🧀", serving_hint:"28g (1 oz slice)",
+    per100g:{ protein:24.90, his:605, ile:1248,leu:2274, lys:1964, met:592, cys:118, phe:1133,tyr:1117,thr:924, trp:322, val:1355 }},
+  { name:"Parmesan (grated)",     category:"vegetarian", emoji:"🧀", serving_hint:"15g (3 tbsp)",
+    per100g:{ protein:35.75, his:887, ile:1680,leu:3161, lys:2948, met:890, cys:250, phe:1685,tyr:1583,thr:1226,trp:490, val:2188 }},
+
+  // Milk
+  { name:"Cow's Milk (whole)",    category:"vegetarian", emoji:"🥛", serving_hint:"244g (1 cup)",
+    per100g:{ protein:3.22,  his:90,  ile:165, leu:317,  lys:264,  met:83,  cys:28,  phe:159, tyr:149, thr:153, trp:46,  val:187 }},
+  { name:"Skimmed Milk",          category:"vegetarian", emoji:"🥛", serving_hint:"244g (1 cup)",
+    per100g:{ protein:3.37,  his:94,  ile:171, leu:332,  lys:271,  met:87,  cys:30,  phe:165, tyr:151, thr:157, trp:46,  val:194 }},
+
+  // Protein supplements
+  { name:"Whey Protein (WPC 80)", category:"vegetarian", emoji:"💪", serving_hint:"30g (1 scoop)",
+    per100g:{ protein:80.00, his:1440,ile:4560,leu:8160, lys:6960, met:1760,cys:1760,phe:2640,tyr:2480,thr:4560,trp:1520,val:4400 }},
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  PROFILE CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════
+
+const PROTEIN_GOALS = [
+  { key:"who",    label:"WHO",    factor:0.83, desc:"Minimum (sedentary)" },
+  { key:"light",  label:"Light",  factor:1.0,  desc:"Light activity"      },
+  { key:"active", label:"Active", factor:1.4,  desc:"Recreational"        },
+  { key:"muscle", label:"Muscle", factor:1.8,  desc:"Muscle building"     },
+  { key:"elite",  label:"Elite",  factor:2.2,  desc:"Elite athlete"       },
+];
+
+const GOAL_DESCRIPTIONS = {
+  who:    "The WHO minimum to prevent protein deficiency. Only for completely sedentary adults — not appropriate if you exercise.",
+  light:  "Suits light exercisers (1–2 sessions per week). Maintains muscle mass with modest activity. A sensible baseline for most healthy adults.",
+  active: "For regular exercisers doing cardio or recreational sport 3–4×/week. Supports recovery, body composition, and general health.",
+  muscle: "Optimal for building muscle with consistent resistance training. Maximises muscle protein synthesis and supports hypertrophy.",
+  elite:  "For competitive athletes or heavy training blocks (5+ days/week). Supports performance, recovery, and body recomposition goals.",
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════
+let meal = [];
+let searchQuery = "";
+let activeCategory = "all";
+let viewMode = "perGram";   // "perGram" | "needs" | "total"
+let radarChart = null;
+let barChart   = null;
+
+let profile = {
+  weight:       75,
+  unit:         "kg",
+  age65plus:    false,
+  goal:         "muscle",
+  mealsPerDay:  3,
+  customTarget: null,
+  expanded:     false,
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  PROFILE HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+
+function weightKg() {
+  return profile.unit === "lbs"
+    ? profile.weight / 2.20462
+    : profile.weight;
+}
+
+// Older adults need ~20% more protein (anabolic resistance)
+function ageMultiplier() {
+  return profile.age65plus ? 1.2 : 1.0;
+}
+
+function dailyProteinTarget() {
+  if (profile.customTarget && profile.customTarget > 0) return profile.customTarget;
+  const goal   = PROTEIN_GOALS.find(g => g.key === profile.goal) || PROTEIN_GOALS[3];
+  const raw    = weightKg() * goal.factor * ageMultiplier();
+  return Math.round(raw);
+}
+
+function perMealProteinTarget() {
+  return dailyProteinTarget() / profile.mealsPerDay;
+}
+
+// Per-meal EAA targets (mg) derived from personal protein target + WHO scoring pattern
+function perMealAATargets() {
+  const perMeal = perMealProteinTarget();
+  const out = {};
+  AA_GROUPS.forEach(g => { out[g.key] = WHO_REF[g.key] * perMeal; });
+  return out;
+}
+
+// ── Profile event handlers ──
+function toggleProfileExpand() {
+  profile.expanded = !profile.expanded;
+  renderProfile();
+}
+
+function setWeightUnit(unit) {
+  const wt = parseFloat(document.getElementById("pWeight").value) || 75;
+  if (unit === "lbs" && profile.unit === "kg") {
+    document.getElementById("pWeight").value = Math.round(wt * 2.20462);
+  } else if (unit === "kg" && profile.unit === "lbs") {
+    document.getElementById("pWeight").value = Math.round(wt / 2.20462);
+  }
+  profile.unit   = unit;
+  profile.weight = parseFloat(document.getElementById("pWeight").value) || 75;
+  document.getElementById("btnKg").classList.toggle("active",  unit === "kg");
+  document.getElementById("btnLbs").classList.toggle("active", unit === "lbs");
+  renderProfile(); renderStats();
+}
+
+function setAge65plus(val) {
+  profile.age65plus = val;
+  document.getElementById("btn65no").classList.toggle("active",  !val);
+  document.getElementById("btn65yes").classList.toggle("active",  val);
+  renderProfile(); renderStats();
+}
+
+function onGoalSlider(idx) {
+  profile.goal = PROTEIN_GOALS[parseInt(idx)].key;
+  syncGoalSlider();
+  renderProfile(); renderStats();
+}
+
+function syncGoalSlider() {
+  const idx  = PROTEIN_GOALS.findIndex(g => g.key === profile.goal);
+  const goal = PROTEIN_GOALS[idx < 0 ? 3 : idx];
+  const fill = ((idx < 0 ? 3 : idx) / (PROTEIN_GOALS.length - 1)) * 100;
+
+  const slider = document.getElementById("goalRange");
+  if (slider) {
+    slider.value = idx < 0 ? 3 : idx;
+    slider.style.background =
+      `linear-gradient(to right, var(--green) ${fill}%, var(--border) ${fill}%)`;
+  }
+
+  const nameEl = document.getElementById("goalDisplayName");
+  const factEl = document.getElementById("goalDisplayFactor");
+  const descEl = document.getElementById("goalDisplayDesc");
+  if (nameEl) nameEl.textContent = goal.label;
+  if (factEl) factEl.textContent = `${goal.factor} g/kg/day`;
+  if (descEl) descEl.textContent = GOAL_DESCRIPTIONS[goal.key] || "";
+
+  document.querySelectorAll(".goal-tick-labels span").forEach((el, i) => {
+    el.classList.toggle("gtl-active", i === (idx < 0 ? 3 : idx));
+  });
+}
+
+function onProfileChange() {
+  profile.weight      = parseFloat(document.getElementById("pWeight").value) || 75;
+  profile.mealsPerDay = Math.max(1, parseInt(document.getElementById("pMeals").value) || 3);
+  renderProfile(); renderStats();
+}
+
+function onCustomChange() {
+  const val = parseFloat(document.getElementById("pCustom").value);
+  profile.customTarget = (val > 0) ? val : null;
+  renderProfile(); renderStats();
+}
+
+function clearCustomTarget() {
+  profile.customTarget = null;
+  document.getElementById("pCustom").value = "";
+  renderProfile(); renderStats();
+}
+
+function renderProfile() {
+  const daily   = dailyProteinTarget();
+  const perMeal = Math.round(perMealProteinTarget());
+  const goal    = PROTEIN_GOALS.find(g => g.key === profile.goal) || PROTEIN_GOALS[3];
+  const wt      = profile.weight;
+  const unit    = profile.unit;
+
+  // Collapsed summary bar
+  document.getElementById("pbSummary").textContent =
+    `${wt} ${unit} · ${goal.desc}` +
+    (profile.age65plus ? " · 65+ boost" : "");
+  document.getElementById("pbTarget").textContent =
+    `${daily} g/day · ${perMeal} g/meal`;
+  document.getElementById("pbCaret").classList.toggle("open", profile.expanded);
+
+  // Expand/collapse body
+  const body = document.getElementById("profileBody");
+  body.classList.toggle("hidden", !profile.expanded);
+
+  if (!profile.expanded) return;
+
+  // Sync goal slider
+  syncGoalSlider();
+
+  // Custom target row
+  const hasCustom = profile.customTarget && profile.customTarget > 0;
+  const calcTarget = Math.round(weightKg() * goal.factor * ageMultiplier());
+  document.getElementById("customActiveNote").classList.toggle("hidden", !hasCustom);
+  document.getElementById("btnClearCustom").classList.toggle("hidden",   !hasCustom);
+  document.getElementById("customCalcNote").textContent = hasCustom
+    ? `(formula would give ${calcTarget} g/day)`
+    : `formula: ${wt} ${unit} × ${goal.factor} g/kg${profile.age65plus ? ` × 1.2 (65+ boost)` : ""} = ${calcTarget} g/day`;
+  if (!hasCustom) document.getElementById("pCustom").value = "";
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CALCULATIONS
+// ═══════════════════════════════════════════════════════════════════════
+
+function getGroupValue(p100, key) {
+  // Map AA_GROUPS keys → raw food data keys
+  const MAP = {
+    histidine:  ["his"],
+    isoleucine: ["ile"],
+    leucine:    ["leu"],
+    lysine:     ["lys"],
+    metcys:     ["met","cys"],
+    phetyr:     ["phe","tyr"],
+    threonine:  ["thr"],
+    tryptophan: ["trp"],
+    valine:     ["val"],
+  };
+  return (MAP[key] || []).reduce((s, k) => s + (p100[k] || 0), 0);
+}
+
+function calcTotals() {
+  const totals = { protein: 0 };
+  AA_GROUPS.forEach(g => totals[g.key] = 0);
+
+  meal.forEach(({ food, grams }) => {
+    const f = grams / 100;
+    totals.protein += (food.per100g.protein || 0) * f;
+    AA_GROUPS.forEach(g => {
+      totals[g.key] += getGroupValue(food.per100g, g.key) * f;
+    });
+  });
+
+  const protein = totals.protein;
+  const perGram = { protein };
+  AA_GROUPS.forEach(g => {
+    perGram[g.key] = protein > 0 ? totals[g.key] / protein : 0;
+  });
+
+  const scores = {};
+  let minScore = Infinity, limitingKey = null;
+  AA_GROUPS.forEach(g => {
+    const ref   = WHO_REF[g.key];
+    const score = ref > 0 ? Math.min(200, (perGram[g.key] / ref) * 100) : 100;
+    scores[g.key] = score;
+    if (score < minScore) { minScore = score; limitingKey = g.key; }
+  });
+
+  return { totals, perGram, scores, limitingKey, minScore };
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COLOUR HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+const clr = pct =>
+  pct >= 90  ? "var(--green)"  :
+  pct >= 60  ? "var(--amber)"  : "var(--red)";
+
+const scoreLabel = pct =>
+  pct >= 100 ? "Excellent"  :
+  pct >= 80  ? "Good"       :
+  pct >= 60  ? "Adequate"   :
+  pct >= 40  ? "Low"        : "Deficient";
+
+// ═══════════════════════════════════════════════════════════════════════
+//  FOOD LIST
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderCategories() {
+  const cats = ["all", ...new Set(FOOD_DB.map(f => f.category))];
+  const labels = {
+    all:"All", soy:"Soy", legume:"Legumes", grain:"Grains",
+    seed:"Seeds", nut:"Nuts", algae:"Algae", veggie:"Veggies",
+    vegetarian:"🥚 Vegetarian", other:"Other"
+  };
+  document.getElementById("categoryFilters").innerHTML = cats.map(c =>
+    `<button class="filter-btn ${c===activeCategory?"active":""}" onclick="setCategory('${c}')">${labels[c]||c}</button>`
+  ).join("");
+}
+
+function renderFoodList() {
+  const q = searchQuery.toLowerCase();
+  const list = FOOD_DB.filter(f =>
+    f.name.toLowerCase().includes(q) &&
+    (activeCategory === "all" || f.category === activeCategory)
+  );
+
+  if (!list.length) {
+    document.getElementById("foodList").innerHTML =
+      `<div class="empty-list">No foods match "${searchQuery}"</div>`;
+    return;
+  }
+
+  document.getElementById("foodList").innerHTML = list.map(f => {
+    const inM = meal.some(m => m.food.name === f.name);
+    return `<div class="food-item ${inM?"in-meal":""}" onclick="toggleFood('${f.name.replace(/'/g,"\\'")}')">
+      <span class="food-emoji">${f.emoji||"🌱"}</span>
+      <div class="food-info">
+        <div class="food-name">${f.name}</div>
+        <div class="food-meta">${f.serving_hint||"100g"}</div>
+      </div>
+      <span class="food-protein">${(f.per100g.protein||0).toFixed(1)}g</span>
+      <button class="food-add-btn">${inM?"✓":"+"}</button>
+    </div>`;
+  }).join("");
+}
+
+function setCategory(cat) {
+  activeCategory = cat;
+  renderCategories();
+  renderFoodList();
+}
+
+function toggleFood(name) {
+  const idx = meal.findIndex(m => m.food.name === name);
+  if (idx >= 0) { meal.splice(idx, 1); }
+  else {
+    const food = FOOD_DB.find(f => f.name === name);
+    if (food) meal.push({ food, grams: defaultGrams(food) });
+  }
+  renderAll();
+}
+
+function defaultGrams(f) {
+  if (f.category === "algae") return 10;
+  if (f.category === "seed" || f.category === "nut") return 30;
+  if (f.name.includes("Bread")) return 60;
+  if (f.name.includes("Milk")) return 244;
+  if (f.name.includes("Yogurt")) return 170;
+  if (f.name.includes("Egg")) return 100;
+  if (f.name.includes("Cheese")) return 113;
+  if (f.name.includes("Peanut Butter")) return 32;
+  return 100;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MEAL PANEL
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderMealItems() {
+  const el = document.getElementById("mealItems");
+  if (!meal.length) {
+    el.innerHTML = `<div class="meal-empty"><div class="hint">👈</div><p>Click foods in the sidebar to build your meal</p></div>`;
+    return;
+  }
+  el.innerHTML = meal.map((item, i) => `
+    <div class="meal-item">
+      <span class="meal-item-emoji">${item.food.emoji||"🌱"}</span>
+      <span class="meal-item-name">${item.food.name}</span>
+      <div class="gram-control">
+        <button class="gram-btn" onclick="adj(${i},-10)">−</button>
+        <input  class="gram-input" type="number" value="${item.grams}" min="1" max="2000"
+                onchange="setG(${i},this.value)" />
+        <span class="gram-label">g</span>
+        <button class="gram-btn" onclick="adj(${i},+10)">+</button>
+      </div>
+      <button class="remove-btn" onclick="rmv(${i})">✕</button>
+    </div>`).join("");
+}
+
+function adj(i, d) { meal[i].grams = Math.max(1, meal[i].grams + d); renderAll(); }
+function setG(i,v) { meal[i].grams = Math.max(1, parseInt(v)||100);  renderAll(); }
+function rmv(i)    { meal.splice(i,1); renderAll(); }
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STATS + TABLE + CHARTS
+// ═══════════════════════════════════════════════════════════════════════
+
+function show(id) { document.getElementById(id).classList.remove("hidden"); }
+function hide(id) { document.getElementById(id).classList.add("hidden"); }
+
+function renderStats() {
+  const sections = ["statsRow","limitingCard","suggestSection","chartsSection","scoreSection","aaTableSection","tipSection"];
+  if (!meal.length) { sections.forEach(hide); return; }
+  sections.forEach(show);
+
+  const { totals, perGram, scores, limitingKey, minScore } = calcTotals();
+  const limitGroup    = AA_GROUPS.find(g => g.key === limitingKey);
+  const limitPct      = Math.round(minScore);
+  const leucineG      = totals.leucine / 1000;
+
+  // ── Profile-based targets ──
+  const dailyProt     = dailyProteinTarget();
+  const mealProtTgt   = perMealProteinTarget();            // g
+  const mealLeuTgt    = WHO_REF.leucine * mealProtTgt / 1000; // g
+  const mealAATgts    = perMealAATargets();                // mg per AA group per meal
+
+  const protCovPct    = Math.min(200, (totals.protein / mealProtTgt) * 100);
+  const leucCovPct    = Math.min(200, (leucineG / mealLeuTgt) * 100);
+
+  // ── Stats row ──
+  document.getElementById("statProtein").textContent  = totals.protein.toFixed(1);
+  document.getElementById("statLeucine").textContent  = leucineG.toFixed(2);
+  document.getElementById("statScore").textContent    = Math.round(minScore);
+  document.getElementById("statLimiting").textContent = limitGroup?.abbr || "—";
+
+  document.getElementById("hintProtein").textContent = `/ ${mealProtTgt.toFixed(0)} g target`;
+  document.getElementById("hintLeucine").textContent = `/ ${mealLeuTgt.toFixed(2)} g target`;
+
+  document.getElementById("statProteinPct").textContent = `${Math.round(protCovPct)}%`;
+  document.getElementById("statProteinPct").style.color = clr(protCovPct);
+  document.getElementById("statLeucinePct").textContent = `${Math.round(leucCovPct)}%`;
+  document.getElementById("statLeucinePct").style.color = clr(leucCovPct);
+
+  document.getElementById("subProtein").textContent  = `${dailyProt} g/day · ${profile.mealsPerDay} meals`;
+  document.getElementById("subLeucine").textContent  = leucineG >= 2.5 ? "✅ MPS threshold met" :
+    leucineG >= 1.5 ? `⚠ MPS threshold: 2.5 g` : "❌ Below 2.5 g MPS threshold";
+  document.getElementById("subScore").textContent    = scoreLabel(minScore);
+  document.getElementById("subLimiting").textContent = limitGroup?.note ? limitGroup.note.split("—")[0].trim() : "";
+
+  const scProt = document.getElementById("scProtein");
+  scProt.className = "stat-card " + (protCovPct >= 90 ? "green" : protCovPct >= 60 ? "amber" : "");
+
+  const scLeu = document.getElementById("scLeucine");
+  scLeu.className = "stat-card " + (leucineG >= mealLeuTgt ? "green" : leucineG >= 1.5 ? "amber" : "red");
+
+  const scSc = document.getElementById("scScore");
+  scSc.className = "stat-card " + (minScore >= 100 ? "green" : minScore >= 60 ? "amber" : "red");
+
+  const scLim = document.getElementById("scLimiting");
+  scLim.className = "stat-card " + (limitPct >= 100 ? "green" : limitPct >= 60 ? "amber" : "red");
+
+  // ── Weakest link callout ──
+  const card       = document.getElementById("limitingCard");
+  const isComplete = limitPct >= 100;
+  const isNear     = limitPct >= 80;
+  card.className   = "limiting-card" + (isComplete ? " good" : "");
+
+  const icon   = isComplete ? "✅" : limitPct >= 60 ? "⚠️" : "🚨";
+  const tColor = isComplete ? "var(--green)" : limitPct >= 60 ? "var(--amber)" : "var(--red)";
+  document.getElementById("limitingIcon").textContent  = icon;
+  document.getElementById("limitingTitle").style.color = tColor;
+
+  const ref = WHO_REF[limitingKey];
+  if (isComplete) {
+    document.getElementById("limitingTitle").textContent = "Complete amino acid profile ✅";
+    document.getElementById("limitingDesc").innerHTML =
+      `All 9 essential amino acid groups meet or exceed the WHO/FAO 2007 adult scoring pattern. ` +
+      `Your meal delivers high-quality, complete protein — great for muscle repair and growth.`;
+  } else if (isNear) {
+    document.getElementById("limitingTitle").textContent = `Near-complete — slight gap in ${limitGroup?.label}`;
+    document.getElementById("limitingDesc").innerHTML =
+      `<strong>${limitGroup?.label}</strong> is your weakest link at ` +
+      `<strong>${perGram[limitingKey].toFixed(1)} mg/g protein</strong> (WHO target: <strong>${ref} mg/g</strong> — you're ${limitPct}% there). ` +
+      `This is a minor gap; adding the foods below will close it easily.`;
+  } else {
+    document.getElementById("limitingTitle").textContent = `Weakest Link: ${limitGroup?.label || "—"}`;
+    document.getElementById("limitingDesc").innerHTML =
+      `Your meal provides only <strong>${perGram[limitingKey].toFixed(1)} mg/g protein</strong> of ${limitGroup?.label} ` +
+      `vs. the WHO reference of <strong>${ref} mg/g</strong> (${limitPct}% of target). ` +
+      `This <em>limiting amino acid</em> most constrains how effectively your body can use this protein for muscle repair and growth.`;
+  }
+
+  const tag = document.getElementById("limitingTag");
+  tag.textContent      = `${limitPct}% of target`;
+  tag.style.background = isComplete ? "var(--green)" : limitPct >= 60 ? "var(--amber)" : "var(--red)";
+  tag.style.color      = "#000";
+
+  // ── PDCAAS score card ──
+  const pdcaas = Math.min(100, minScore);
+  const pColor = clr(pdcaas);
+  document.getElementById("pdcaasScore").textContent   = `${Math.round(pdcaas)}%`;
+  document.getElementById("pdcaasScore").style.color   = pColor;
+  document.getElementById("pdcaasDesc").textContent    = `${scoreLabel(pdcaas)} — limited by ${limitGroup?.label || "—"}`;
+  document.getElementById("pdcaasBar").style.width     = `${pdcaas}%`;
+  document.getElementById("pdcaasBar").style.background = pColor;
+
+  // ── Leucine score card (profile-aware) ──
+  const lTgtPct   = Math.min(100, leucCovPct);
+  const lColor    = leucineG >= mealLeuTgt ? "var(--green)" : leucineG >= 1.5 ? "var(--amber)" : "var(--red)";
+  document.getElementById("leucineScore").textContent  = `${leucineG.toFixed(2)}g`;
+  document.getElementById("leucineScore").style.color  = lColor;
+  document.getElementById("leucineDesc").innerHTML     =
+    `<strong>Meal target:</strong> ${mealLeuTgt.toFixed(2)} g (${dailyProt}g protein/day ÷ ${profile.mealsPerDay} meals × 63 mg/g) · ` +
+    `<strong>MPS trigger:</strong> ≥ 2.5 g · ` +
+    (leucineG >= mealLeuTgt ? `✅ Target met` :
+     leucineG >= 2.5        ? `⚠ Above MPS threshold but below your per-meal target` :
+                               `❌ Below both thresholds`);
+  document.getElementById("leucineBar").style.width     = `${lTgtPct}%`;
+  document.getElementById("leucineBar").style.background = lColor;
+
+  // ── AA Table ──
+  const isPG    = viewMode === "perGram";
+  const isNeeds = viewMode === "needs";
+
+  // Update table header subtitle
+  document.querySelector("#aaTableSection .sub").textContent =
+    isPG    ? "mg per g protein vs. WHO/FAO 2007 scoring pattern · bar = % of reference met" :
+    isNeeds ? `total mg in meal vs. per-meal target (${dailyProt}g/day ÷ ${profile.mealsPerDay} meals) · bar = % of target met` :
+              "total mg in this meal";
+
+  document.getElementById("aaTableBody").innerHTML = AA_GROUPS.map(g => {
+    let mealVal, refVal, pct, unit2;
+
+    if (isPG) {
+      mealVal = perGram[g.key].toFixed(1);
+      refVal  = `${WHO_REF[g.key]} mg/g`;
+      pct     = Math.round(scores[g.key]);
+      unit2   = "mg/g";
+    } else if (isNeeds) {
+      const tgt = mealAATgts[g.key];
+      mealVal   = totals[g.key].toFixed(0);
+      refVal    = `${Math.round(tgt)} mg`;
+      pct       = Math.min(200, Math.round((totals[g.key] / tgt) * 100));
+      unit2     = "mg";
+    } else {
+      mealVal = totals[g.key].toFixed(0);
+      refVal  = "—";
+      pct     = Math.round(scores[g.key]);
+      unit2   = "mg";
+    }
+
+    const isLimit  = g.key === limitingKey;
+    const isStr    = isPG ? scores[g.key] >= 100 : (isNeeds ? pct >= 100 : scores[g.key] >= 100);
+    const barW     = Math.min(100, pct);
+    const c        = clr(pct);
+    const tagHtml  = g.tag === "mps"  ? '<span class="aa-tag tag-mps">★ MPS KEY</span>' :
+                     g.tag === "bcaa" ? '<span class="aa-tag tag-bcaa">BCAA</span>' : "";
+
+    return `<tr class="${isLimit?"row-limiting":isStr?"row-strong":""}">
+      <td>
+        <span class="aa-name">${g.label}</span>
+        <span class="aa-abbr">${g.abbr}</span>${tagHtml}
+      </td>
+      <td>${mealVal} ${unit2}</td>
+      <td>${refVal}</td>
+      <td>
+        <div class="progress-wrap">
+          <div class="progress-bar-bg">
+            <div class="progress-bar" style="width:${barW}%;background:${c}"></div>
+          </div>
+          <span class="progress-pct" style="color:${c}">${pct}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join("");
+
+  // ── Pairing tips ──
+  document.getElementById("tipList").innerHTML = (PAIRING_TIPS[limitingKey] || []).map(t =>
+    `<div class="tip-item"><span class="ti">${t.slice(0,2)}</span><span>${t.slice(2)}</span></div>`
+  ).join("");
+
+  // ── Charts ──
+  renderRadarChart(perGram, scores);
+  renderBarChart(scores, limitingKey);
+
+  // ── Suggest next ingredient ──
+  renderSuggestions(totals, scores, limitingKey, minScore);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SUGGEST NEXT INGREDIENT
+// ═══════════════════════════════════════════════════════════════════════
+
+function renderSuggestions(totals, scores, limitingKey, minScore) {
+  const section = document.getElementById("suggestSection");
+  if (!meal.length) { section.classList.add("hidden"); return; }
+
+  // When the meal is already complete, hide suggestions
+  if (minScore >= 100) { section.classList.add("hidden"); return; }
+
+  const limitGroup = AA_GROUPS.find(g => g.key === limitingKey);
+  const inMeal     = new Set(meal.map(m => m.food.name));
+
+  // Simulate adding each candidate food and score the improvement
+  const PREFERRED = new Set(["legume", "grain"]);
+
+  const simulate = FOOD_DB
+    .filter(f => !inMeal.has(f.name) && f.category !== "vegetarian")
+    .map(food => {
+      const grams   = defaultGrams(food);
+      const frac    = grams / 100;
+      const addProt = (food.per100g.protein || 0) * frac;
+      const newProt = totals.protein + addProt;
+      if (newProt < 0.5) return null;
+
+      const newAA = {};
+      AA_GROUPS.forEach(g => {
+        newAA[g.key] = totals[g.key] + getGroupValue(food.per100g, g.key) * frac;
+      });
+
+      let newMin = Infinity;
+      AA_GROUPS.forEach(g => {
+        const pg = newAA[g.key] / newProt;
+        const sc = WHO_REF[g.key] > 0 ? Math.min(200, (pg / WHO_REF[g.key]) * 100) : 100;
+        if (sc < newMin) newMin = sc;
+      });
+
+      const newLimPG    = newAA[limitingKey] / newProt;
+      const newLimScore = (newLimPG / WHO_REF[limitingKey]) * 100;
+
+      return { food, grams, delta: newMin - minScore, newMin, newLimScore };
+    })
+    .filter(r => r && r.delta > 0.3)
+    .sort((a, b) => b.delta - a.delta);
+
+  // Prefer common legumes & grains; fall back to anything else
+  const preferred = simulate.filter(r => PREFERRED.has(r.food.category));
+  const fallback  = simulate.filter(r => !PREFERRED.has(r.food.category));
+  const candidates = [...preferred, ...fallback].slice(0, 2);
+
+  if (!candidates.length) { section.classList.add("hidden"); return; }
+
+  section.classList.remove("hidden");
+  document.getElementById("suggestSub").textContent =
+    `currently limiting: ${limitGroup?.label} · ${Math.round(minScore)}% of WHO target`;
+
+  document.getElementById("suggestList").innerHTML = candidates.map((c, i) => {
+    const delta    = Math.round(c.delta);
+    const newScore = Math.min(100, Math.round(c.newMin));
+    const newLim   = Math.round(c.newLimScore);
+    const badge    = delta >= 10 ? `background:var(--green-dim);color:var(--green)`
+                   : delta >= 4  ? `background:var(--blue-dim);color:var(--blue)`
+                   :               `background:var(--surface2);color:var(--text2)`;
+    const arrow    = newScore > Math.round(minScore) ? `→ ${newScore}%` : ``;
+    return `
+      <div class="suggest-item">
+        <span class="suggest-rank">${i+1}</span>
+        <span class="suggest-emoji">${c.food.emoji}</span>
+        <div class="suggest-info">
+          <div class="suggest-name">${c.food.name}</div>
+          <div class="suggest-detail">
+            ${c.grams}g serving · lifts ${limitGroup?.abbr} to <strong>${newLim}%</strong>
+            ${arrow ? `· quality score ${arrow}` : ""}
+          </div>
+        </div>
+        <span class="suggest-badge" style="${badge}">+${delta}% ↑</span>
+        <button class="suggest-add-btn" onclick="addSuggested('${c.food.name.replace(/'/g,"\\'")}',${c.grams})">＋ Add</button>
+      </div>`;
+  }).join("");
+}
+
+function addSuggested(name, grams) {
+  const food = FOOD_DB.find(f => f.name === name);
+  if (!food || meal.find(m => m.food.name === name)) return;
+  meal.push({ food, grams });
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MOBILE SIDEBAR
+// ═══════════════════════════════════════════════════════════════════════
+
+function openMobileSidebar() {
+  document.getElementById("sidebar").classList.add("mobile-open");
+  document.getElementById("mobileOverlay").classList.add("visible");
+  const fab = document.getElementById("mobileFab");
+  fab.textContent = "✕";
+  fab.classList.add("is-open");
+}
+function closeMobileSidebar() {
+  document.getElementById("sidebar").classList.remove("mobile-open");
+  document.getElementById("mobileOverlay").classList.remove("visible");
+  const fab = document.getElementById("mobileFab");
+  fab.textContent = "＋";
+  fab.classList.remove("is-open");
+}
+function toggleMobileSidebar() {
+  document.getElementById("sidebar").classList.contains("mobile-open")
+    ? closeMobileSidebar() : openMobileSidebar();
+}
+
+function renderRadarChart(perGram, scores) {
+  const labels   = AA_GROUPS.map(g => g.abbr);
+  const userData = AA_GROUPS.map(g => {
+    const ref = WHO_REF[g.key];
+    return ref > 0 ? Math.min(160, (perGram[g.key] / ref) * 100) : 0;
+  });
+  const refData  = AA_GROUPS.map(() => 100);
+
+  const ctx = document.getElementById("radarChart").getContext("2d");
+  if (radarChart) radarChart.destroy();
+  radarChart = new Chart(ctx, {
+    type: "radar",
+    data: {
+      labels,
+      datasets: [
+        { label:"Your Meal", data:userData, backgroundColor:"rgba(77,158,114,.18)",
+          borderColor:"#4d9e72", borderWidth:2.5, pointBackgroundColor:"#4d9e72", pointRadius:4.5,
+          pointHoverRadius:6 },
+        { label:"Reference (100%)", data:refData, backgroundColor:"rgba(124,111,216,.06)",
+          borderColor:"rgba(124,111,216,.35)", borderWidth:1.5, borderDash:[5,4], pointRadius:2 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales:{ r:{
+        min:0, max:160,
+        ticks:{ stepSize:40, color:"#9e90ba", font:{size:10}, backdropColor:"transparent" },
+        grid:{ color:"rgba(232,223,247,.8)" },
+        angleLines:{ color:"rgba(232,223,247,.9)" },
+        pointLabels:{ color:"#6a5c84", font:{size:11,weight:"600"} }
+      }},
+      plugins:{
+        legend:{ labels:{ color:"#6a5c84", font:{size:11} } },
+        tooltip:{ callbacks:{ label: c=>`${c.dataset.label}: ${Math.round(c.raw)}% of reference` } }
+      }
+    }
+  });
+}
+
+function renderBarChart(scores, limitingKey) {
+  const labels = AA_GROUPS.map(g => g.abbr);
+  const values = AA_GROUPS.map(g => Math.min(130, scores[g.key]));
+  const colors = AA_GROUPS.map(g =>
+    g.key === limitingKey ? "#d97a58" :
+    scores[g.key] >= 100  ? "#4d9e72" :
+    scores[g.key] >= 60   ? "#7c6fd8" : "#c9546f"
+  );
+
+  const ctx = document.getElementById("barChart").getContext("2d");
+  if (barChart) barChart.destroy();
+  barChart = new Chart(ctx, {
+    type:"bar",
+    data:{
+      labels,
+      datasets:[{
+        label:"% of WHO Reference",
+        data:values, backgroundColor:colors, borderRadius:8
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      scales:{
+        x:{ grid:{ color:"rgba(232,223,247,.6)" }, ticks:{ color:"#6a5c84" } },
+        y:{ min:0, max:130, grid:{ color:"rgba(232,223,247,.6)" },
+            ticks:{ color:"#6a5c84", callback:v=>v+"%" } }
+      },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label: c=>`${Math.round(c.raw)}% of WHO reference` } }
+      }
+    }
+  });
+}
+
+function renderRefGrid() {
+  document.getElementById("refGrid").innerHTML = AA_GROUPS.map(g =>
+    `<div class="ref-item">
+       <div class="ref-aa">${g.abbr}</div>
+       <div class="ref-val">${WHO_REF[g.key]} mg/g</div>
+     </div>`
+  ).join("");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  VIEW TOGGLE
+// ═══════════════════════════════════════════════════════════════════════
+function setView(v) {
+  viewMode = v;
+  document.getElementById("viewPerGram").classList.toggle("active", v === "perGram");
+  document.getElementById("viewNeeds").classList.toggle("active",   v === "needs");
+  document.getElementById("viewTotal").classList.toggle("active",   v === "total");
+  renderStats();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MASTER RENDER
+// ═══════════════════════════════════════════════════════════════════════
+function renderAll() {
+  renderMealItems();
+  renderFoodList();
+  renderStats();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  EVENTS
+// ═══════════════════════════════════════════════════════════════════════
+document.getElementById("searchInput").addEventListener("input", e => {
+  searchQuery = e.target.value;
+  renderFoodList();
+});
+document.getElementById("clearMealBtn").addEventListener("click", () => {
+  meal = [];
+  renderAll();
+});
+
+// ── INIT ──
+renderProfile();
+renderCategories();
+renderFoodList();
+renderRefGrid();
+</script>
+</body>
+</html>
