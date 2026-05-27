@@ -479,22 +479,6 @@
     .goal-display-factor { font-size: 12px; font-weight: 700; color: var(--text2); }
     .goal-display-desc   { font-size: 12px; color: var(--text2); line-height: 1.6; }
 
-    .custom-row {
-      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-      padding: 10px 13px; background: var(--surface);
-      border: 1.5px solid var(--border); border-radius: var(--radius-sm);
-    }
-    .custom-row label { font-size: 12px; color: var(--text2); white-space: nowrap; }
-    .custom-row .profile-input { width: 72px; }
-    .custom-unit { font-size: 12px; color: var(--text2); }
-    .custom-note { font-size: 11px; color: var(--text3); }
-    .custom-active-note { font-size: 11px; color: var(--amber); font-weight: 700; }
-    .btn-ghost-sm {
-      background: none; border: 1.5px solid var(--border); color: var(--text2);
-      font-size: 11px; padding: 3px 10px; border-radius: var(--radius-sm);
-      cursor: pointer; transition: all .1s;
-    }
-    .btn-ghost-sm:hover { border-color: var(--red); color: var(--red); background: var(--red-dim); }
 
     /* Stat card sub-elements */
     .stat-sub  { font-size: 11px; color: var(--text2); margin-top: 3px; }
@@ -718,15 +702,6 @@
             </div>
             <div class="goal-display-desc" id="goalDisplayDesc">Optimal for building muscle with consistent resistance training. Maximises muscle protein synthesis throughout the day.</div>
           </div>
-        </div>
-        <div class="custom-row">
-          <label>Custom override:</label>
-          <input class="profile-input" type="number" id="pCustom" placeholder="—" min="30" max="600" inputmode="decimal"
-                 oninput="onCustomChange()" />
-          <span class="custom-unit">g / day</span>
-          <span class="custom-active-note hidden" id="customActiveNote">⚡ custom target active</span>
-          <span class="custom-note" id="customCalcNote"></span>
-          <button class="btn-ghost-sm hidden" id="btnClearCustom" onclick="clearCustomTarget()">✕ Clear</button>
         </div>
       </div>
     </div>
@@ -1104,7 +1079,6 @@ let profile = {
   age65plus:    false,
   goal:         "muscle",
   mealsPerDay:  3,
-  customTarget: null,
   expanded:     false,
 };
 
@@ -1124,7 +1098,6 @@ function ageMultiplier() {
 }
 
 function dailyProteinTarget() {
-  if (profile.customTarget && profile.customTarget > 0) return profile.customTarget;
   const goal   = PROTEIN_GOALS.find(g => g.key === profile.goal) || PROTEIN_GOALS[3];
   const raw    = weightKg() * goal.factor * ageMultiplier();
   return Math.round(raw);
@@ -1205,17 +1178,6 @@ function onProfileChange() {
   renderProfile(); renderStats();
 }
 
-function onCustomChange() {
-  const val = parseFloat(document.getElementById("pCustom").value);
-  profile.customTarget = (val > 0) ? val : null;
-  renderProfile(); renderStats();
-}
-
-function clearCustomTarget() {
-  profile.customTarget = null;
-  document.getElementById("pCustom").value = "";
-  renderProfile(); renderStats();
-}
 
 function renderProfile() {
   const daily   = dailyProteinTarget();
@@ -1241,15 +1203,6 @@ function renderProfile() {
   // Sync goal slider
   syncGoalSlider();
 
-  // Custom target row
-  const hasCustom = profile.customTarget && profile.customTarget > 0;
-  const calcTarget = Math.round(weightKg() * goal.factor * ageMultiplier());
-  document.getElementById("customActiveNote").classList.toggle("hidden", !hasCustom);
-  document.getElementById("btnClearCustom").classList.toggle("hidden",   !hasCustom);
-  document.getElementById("customCalcNote").textContent = hasCustom
-    ? `(formula would give ${calcTarget} g/day)`
-    : `formula: ${wt} ${unit} × ${goal.factor} g/kg${profile.age65plus ? ` × 1.2 (65+ boost)` : ""} = ${calcTarget} g/day`;
-  if (!hasCustom) document.getElementById("pCustom").value = "";
 }
 
 // ═══════════════════════════════════════════════════════════════════════

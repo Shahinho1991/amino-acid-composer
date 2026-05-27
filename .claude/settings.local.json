@@ -16,7 +16,8 @@
       "Bash(git commit -m 'Initial commit: Amino Acid Meal Composer *)",
       "Bash(gh repo *)",
       "Bash(git commit -m 'Mobile: disable zoom, numeric keyboards on all number inputs *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git commit -m 'Remove custom protein override *)"
     ]
   }
 }
