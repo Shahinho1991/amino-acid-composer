@@ -696,10 +696,6 @@
               <button class="toggle-btn"        id="btn65yes" onclick="setAge65plus(true)">65 +</button>
             </div>
           </div>
-          <div class="profile-field">
-            <label>Meals / day</label>
-            <input class="profile-input" type="number" id="pMeals" value="3" min="1" max="6" inputmode="numeric" oninput="onProfileChange()" />
-          </div>
         </div>
         <div class="goal-section">
           <label>Goal — daily protein target</label>
@@ -817,7 +813,7 @@
         </div>
         <div class="view-toggle">
           <button class="view-btn active" id="viewPerGram" onclick="setView('perGram')">Quality (mg/g)</button>
-          <button class="view-btn"        id="viewNeeds"   onclick="setView('needs')">Meal needs</button>
+          <button class="view-btn"        id="viewNeeds"   onclick="setView('needs')">Daily needs</button>
           <button class="view-btn"        id="viewTotal"   onclick="setView('total')">Total mg</button>
         </div>
       </div>
@@ -825,7 +821,7 @@
         <thead>
           <tr>
             <th>Amino Acid Group</th>
-            <th>Your Meal</th>
+            <th>Your Intake</th>
             <th>WHO Target</th>
             <th>% of Target</th>
           </tr>
@@ -1092,7 +1088,7 @@ let profile = {
   unit:         "kg",
   age65plus:    false,
   goal:         "muscle",
-  mealsPerDay:  3,
+  mealsPerDay:  1,
   expanded:     false,
 };
 
@@ -1200,14 +1196,12 @@ function syncGoalSlider() {
 
 function onProfileChange() {
   profile.weight      = parseFloat(document.getElementById("pWeight").value) || 75;
-  profile.mealsPerDay = Math.max(1, parseInt(document.getElementById("pMeals").value) || 3);
   renderProfile(); renderStats();
 }
 
 
 function renderProfile() {
   const daily   = dailyProteinTarget();
-  const perMeal = Math.round(perMealProteinTarget());
   const goal    = PROTEIN_GOALS.find(g => g.key === profile.goal) || PROTEIN_GOALS[3];
   const wt      = profile.weight;
   const unit    = profile.unit;
@@ -1217,7 +1211,7 @@ function renderProfile() {
     `${wt} ${unit} · ${goal.desc}` +
     (profile.age65plus ? " · 65+ boost" : "");
   document.getElementById("pbTarget").textContent =
-    `${daily} g/day · ${perMeal} g/meal`;
+    `${daily} g/day`;
   document.getElementById("pbCaret").classList.toggle("open", profile.expanded);
 
   // Expand/collapse body
@@ -1435,7 +1429,7 @@ function renderStats() {
   document.getElementById("statLeucinePct").textContent = `${Math.round(leucCovPct)}%`;
   document.getElementById("statLeucinePct").style.color = clr(leucCovPct);
 
-  document.getElementById("subProtein").textContent  = `${dailyProt} g/day · ${profile.mealsPerDay} meals`;
+  document.getElementById("subProtein").textContent  = `${dailyProt} g/day target`;
   document.getElementById("subLeucine").textContent  = leucineG >= 2.5 ? "✅ MPS threshold met" :
     leucineG >= 1.5 ? `⚠ MPS threshold: 2.5 g` : "❌ Below 2.5 g MPS threshold";
   document.getElementById("subScore").textContent    = scoreLabel(minScore);
@@ -1504,10 +1498,10 @@ function renderStats() {
   document.getElementById("leucineScore").textContent  = `${leucineG.toFixed(2)}g`;
   document.getElementById("leucineScore").style.color  = lColor;
   document.getElementById("leucineDesc").innerHTML     =
-    `<strong>Meal target:</strong> ${mealLeuTgt.toFixed(2)} g (${dailyProt}g protein/day ÷ ${profile.mealsPerDay} meals × 63 mg/g) · ` +
+    `<strong>Daily target:</strong> ${mealLeuTgt.toFixed(2)} g (${dailyProt}g protein/day × 63 mg/g) · ` +
     `<strong>MPS trigger:</strong> ≥ 2.5 g · ` +
     (leucineG >= mealLeuTgt ? `✅ Target met` :
-     leucineG >= 2.5        ? `⚠ Above MPS threshold but below your per-meal target` :
+     leucineG >= 2.5        ? `⚠ Above MPS threshold but below your daily target` :
                                `❌ Below both thresholds`);
   document.getElementById("leucineBar").style.width     = `${lTgtPct}%`;
   document.getElementById("leucineBar").style.background = lColor;
@@ -1519,8 +1513,8 @@ function renderStats() {
   // Update table header subtitle
   document.querySelector("#aaTableSection .sub").textContent =
     isPG    ? "mg per g protein vs. WHO/FAO 2007 scoring pattern · bar = % of reference met" :
-    isNeeds ? `total mg in meal vs. per-meal target (${dailyProt}g/day ÷ ${profile.mealsPerDay} meals) · bar = % of target met` :
-              "total mg in this meal";
+    isNeeds ? `total mg in daily intake vs. daily target (${dailyProt}g/day) · bar = % of target met` :
+              "total mg in daily intake";
 
   document.getElementById("aaTableBody").innerHTML = AA_GROUPS.map(g => {
     let mealVal, refVal, pct, unit2;
@@ -1708,7 +1702,7 @@ function renderRadarChart(perGram, scores) {
     data: {
       labels,
       datasets: [
-        { label:"Your Meal", data:userData, backgroundColor:"rgba(77,158,114,.18)",
+        { label:"Your Intake", data:userData, backgroundColor:"rgba(77,158,114,.18)",
           borderColor:"#4d9e72", borderWidth:2.5, pointBackgroundColor:"#4d9e72", pointRadius:4.5,
           pointHoverRadius:6 },
         { label:"Reference (100%)", data:refData, backgroundColor:"rgba(124,111,216,.06)",
