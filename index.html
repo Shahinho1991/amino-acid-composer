@@ -35,6 +35,7 @@
       font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
       font-size: 14px;
       min-height: 100vh;
+      touch-action: pan-x pan-y;
     }
     /* ── Pride stripe ── */
     body::before {
@@ -732,6 +733,29 @@
       </div>
     </div>
 
+    <!-- Effective Protein -->
+    <div class="score-card hidden" id="effPanel" style="margin-bottom:14px">
+      <h3>⚡ Effective Protein</h3>
+      <div class="eff-row">
+        <div>
+          <div class="score-big" id="effProtein">—</div>
+          <div class="score-desc">effective grams</div>
+        </div>
+        <div class="eff-stats">
+          <div class="eff-stat">
+            <span class="eff-label">Actual eaten</span>
+            <span class="eff-val" id="effActual">—</span>
+          </div>
+          <div class="eff-stat">
+            <span class="eff-label">Efficiency</span>
+            <span class="eff-val" id="effPct">—</span>
+          </div>
+        </div>
+      </div>
+      <div class="score-bar-wrap"><div class="score-bar" id="effBar"></div></div>
+      <div class="score-desc" id="effDesc" style="margin-top:8px">—</div>
+    </div>
+
     <!-- Stats -->
     <div class="stats-row hidden" id="statsRow">
       <div class="stat-card" id="scProtein">
@@ -800,27 +824,6 @@
         <div class="score-big" id="pdcaasScore">—</div>
         <div class="score-desc" id="pdcaasDesc">—</div>
         <div class="score-bar-wrap"><div class="score-bar" id="pdcaasBar"></div></div>
-      </div>
-      <div class="score-card" style="grid-column:1/-1">
-        <h3>⚡ Effective Protein</h3>
-        <div class="eff-row">
-          <div>
-            <div class="score-big" id="effProtein">—</div>
-            <div class="score-desc">effective grams</div>
-          </div>
-          <div class="eff-stats">
-            <div class="eff-stat">
-              <span class="eff-label">Actual eaten</span>
-              <span class="eff-val" id="effActual">—</span>
-            </div>
-            <div class="eff-stat">
-              <span class="eff-label">Efficiency</span>
-              <span class="eff-val" id="effPct">—</span>
-            </div>
-          </div>
-        </div>
-        <div class="score-bar-wrap"><div class="score-bar" id="effBar"></div></div>
-        <div class="score-desc" id="effDesc" style="margin-top:8px">—</div>
       </div>
       <div class="score-card">
         <h3>🎯 Leucine Threshold for MPS</h3>
@@ -1423,7 +1426,7 @@ function show(id) { document.getElementById(id).classList.remove("hidden"); }
 function hide(id) { document.getElementById(id).classList.add("hidden"); }
 
 function renderStats() {
-  const sections = ["statsRow","limitingCard","suggestSection","chartsSection","scoreSection","aaTableSection","tipSection"];
+  const sections = ["effPanel","statsRow","limitingCard","suggestSection","chartsSection","scoreSection","aaTableSection","tipSection"];
   if (!meal.length) { sections.forEach(hide); return; }
   sections.forEach(show);
 
@@ -1844,6 +1847,8 @@ document.getElementById("clearMealBtn").addEventListener("click", () => {
 });
 
 window.addEventListener("resize", syncGoalSlider);
+document.addEventListener("touchstart", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener("touchmove",  e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 // ── INIT ──
 renderProfile();
