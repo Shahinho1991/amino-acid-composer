@@ -471,10 +471,22 @@
     }
     .goal-tick-labels span.gtl-active { color: var(--green); font-weight: 700; }
     .goal-display {
+      position: relative; margin-top: 10px;
       background: var(--green-dim);
       border: 1.5px solid color-mix(in srgb, var(--green) 30%, transparent);
       border-radius: var(--radius-sm); padding: 12px 14px;
       transition: background .2s;
+    }
+    .goal-display::before {
+      content: '';
+      position: absolute;
+      top: -6px;
+      left: var(--arrow-left, 50%);
+      transform: translateX(-50%) rotate(45deg);
+      width: 10px; height: 10px;
+      background: var(--green-dim);
+      border-top: 1.5px solid color-mix(in srgb, var(--green) 30%, transparent);
+      border-left: 1.5px solid color-mix(in srgb, var(--green) 30%, transparent);
     }
     .goal-display-top { display: flex; align-items: baseline; gap: 10px; margin-bottom: 5px; }
     .goal-display-name   { font-size: 17px; font-weight: 800; color: var(--green); }
@@ -697,7 +709,7 @@
           <div class="goal-tick-labels">
             <span>WHO</span><span>Light</span><span>Active</span><span>Muscle</span><span>Elite</span>
           </div>
-          <div class="goal-display">
+          <div class="goal-display" id="goalDisplay">
             <div class="goal-display-top">
               <span class="goal-display-name"  id="goalDisplayName">Muscle</span>
               <span class="goal-display-factor" id="goalDisplayFactor">1.8 g/kg/day</span>
@@ -1121,6 +1133,7 @@ function perMealAATargets() {
 function toggleProfileExpand() {
   profile.expanded = !profile.expanded;
   renderProfile();
+  if (profile.expanded) requestAnimationFrame(syncGoalSlider);
 }
 
 function setWeightUnit(unit) {
@@ -1172,6 +1185,17 @@ function syncGoalSlider() {
   document.querySelectorAll(".goal-tick-labels span").forEach((el, i) => {
     el.classList.toggle("gtl-active", i === (idx < 0 ? 3 : idx));
   });
+
+  const idxActual = idx < 0 ? 3 : idx;
+  const goalDisplay = document.getElementById("goalDisplay");
+  if (slider && goalDisplay) {
+    const W = slider.offsetWidth;
+    if (W > 0) {
+      const thumbW = 24;
+      const pct = ((idxActual / 4) * (W - thumbW) + thumbW / 2) / W * 100;
+      goalDisplay.style.setProperty("--arrow-left", pct.toFixed(2) + "%");
+    }
+  }
 }
 
 function onProfileChange() {
@@ -1783,6 +1807,8 @@ document.getElementById("clearMealBtn").addEventListener("click", () => {
   meal = [];
   renderAll();
 });
+
+window.addEventListener("resize", syncGoalSlider);
 
 // ── INIT ──
 renderProfile();
