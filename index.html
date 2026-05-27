@@ -1346,7 +1346,8 @@ function defaultGrams(f) {
 function renderMealItems() {
   const el = document.getElementById("mealItems");
   if (!meal.length) {
-    el.innerHTML = `<div class="meal-empty"><div class="hint">👈</div><p>Click foods in the sidebar to build your meal</p></div>`;
+    const isMobile = window.innerWidth <= 680;
+    el.innerHTML = `<div class="meal-empty"><div class="hint">${isMobile ? "＋" : "👈"}</div><p>${isMobile ? "Tap the + button to browse ingredients ✨" : "Choose ingredients from the sidebar to build your meal ✨"}</p></div>`;
     return;
   }
   el.innerHTML = meal.map((item, i) => `
@@ -1786,6 +1787,7 @@ renderProfile();
 renderCategories();
 renderFoodList();
 renderRefGrid();
+renderMealItems();
 </script>
 </body>
 </html>
